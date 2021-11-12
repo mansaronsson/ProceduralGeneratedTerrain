@@ -53,14 +53,24 @@ int main() {
     myShader.use();
     //glm::mat4 camera1{ 1.0f };// = glm::mat4(1.0f);
     //glm::mat4 camera2{ 1.0f };
-    glm::mat4 perspective = glm::perspective(static_cast<float>(M_PI) / 4.0f, static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 100.0f);
-   
-    myShader.setMat4("P", perspective);
+    glm::mat4 perspective = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 30.0f);
+    glm::mat4 perspective2 = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 100.0f);
 
-    camera2 = glm::rotate(camera2, glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    camera2 = glm::translate(camera2, glm::vec3(0.0f, -12.0f, -12.0f));
+   
+    myShader.setMat4("P", perspective2);
 
     camera1 = glm::translate(camera1, glm::vec3(0.0f, 0.0f, -3.0f));
+
+    camera2 = glm::translate(camera2, glm::vec3(0.0f, -4.0f, -20.0f));
+    camera2 = glm::rotate(camera2, glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+
+    //easier to understand matrice printr?
+    //for (int i = 0; i < 4; ++i) {
+    //    for (int j = 0; j < 4; ++j) {
+    //        std::cout << camera2[j][i] << " ";
+    //    }
+    //    std::cout << '\n';
+    //}
    
     // Create test triangle
     float vertices[] = {
@@ -70,17 +80,43 @@ int main() {
     };
 
     float cameraPoints[] = {
-        //near
-        -1.0f, -1.0f, -1.0,
-        -1.0f,  1.0f, -1.0,
-         1.0f, -1.0f, -1.0,
-         1.0f,  1.0f, -1.0,
+        ////near
+        //-1.0f, -1.0f,  -1.0f,
+        // 1.0f, -1.0f,  -1.0f,
+        // 1.0f,  1.0f,  -1.0f,
+        //-1.0f,  1.0f,  -1.0f,
+        // //far
+        //-1.0f, -1.0f,  1.0f,
+        // 1.0f, -1.0f,  1.0f,
+        // 1.0f,  1.0f,  1.0f,
+        //-1.0f,  1.0f,  1.0f,
 
-         //far
-        -1.0f, -1.0f,  1.0,
-        -1.0f,  1.0f,  1.0,
-         1.0f, -1.0f,  1.0,
-         1.0f,  1.0f,  1.0,
+        //near
+        -1.0f, -1.0f,  -1.0f, //1
+         1.0f, -1.0f,  -1.0f, //2
+         1.0f,  1.0f,  -1.0f, //3
+        -1.0f,  1.0f,  -1.0f, //4
+        -1.0f, -1.0f,  -1.0f, //1
+
+        //far
+        -1.0f, -1.0f,  1.0f, //5
+         1.0f, -1.0f,  1.0f, //6
+         1.0f,  1.0f,  1.0f, //7
+        -1.0f,  1.0f,  1.0f, //8
+        -1.0f, -1.0f,  1.0f, //5
+
+        -1.0f,  1.0f,  1.0f, //8
+        -1.0f,  1.0f, -1.0f, //4
+         1.0f,  1.0f,  -1.0f, //3
+         1.0f,  1.0f,  1.0f, //7
+         1.0f, -1.0f,  1.0f, //6
+         1.0f, -1.0f,  -1.0f, //2
+
+
+
+
+
+
     };
 
     //Create vertex buffer object
@@ -96,36 +132,70 @@ int main() {
     glEnableVertexAttribArray(0);
 
 
-    //Create vertex buffer object
+
+
+    auto invproj = glm::inverse(perspective * camera1);
+    float points[3 * 16];
+    for (int i = 0; i < 3 * 16; i += 3) {
+        glm::vec4 v = invproj * glm::vec4(cameraPoints[i], cameraPoints[i + 1], cameraPoints[i + 2], 1.0f);
+        glm::vec3 worldV = v / v.w;
+        std::cout << worldV.x << " " << worldV.y << " " << worldV.z << '\n';
+        points[i] = worldV.x;
+        points[i + 1] = worldV.y;
+        points[i + 2] = worldV.z;
+    }
+
+    //Create vertex buffer object for camera
     unsigned int VBOcamera, VAOcamera;
     glGenVertexArrays(1, &VAOcamera);
     glGenBuffers(1, &VBOcamera);
     glBindVertexArray(VAOcamera);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBOcamera); //bind
-    glBufferData(GL_ARRAY_BUFFER, sizeof(cameraPoints), cameraPoints, GL_STATIC_DRAW); //add data, GL_DYNAMIC_DRAW if data is changed alot  
+    glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW); //add data, GL_DYNAMIC_DRAW if data is changed alot  
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-
 
     // Render loop
     while (!glfwWindowShouldClose(window))
     {
         processInput(window);
 
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         myShader.use();
 
-        toggleCamera ? myShader.setMat4("MV", camera1) : myShader.setMat4("MV", camera2);
+        toggleCamera ? myShader.setMat4("V", camera1) : myShader.setMat4("V", camera2);
+
+
+
+
+
+        float time = glfwGetTime();
+        glm::mat4 modelM = glm::mat4(1.0f);
+        modelM = glm::rotate(modelM, glm::radians(45.0f * time), glm::vec3(0.0f, 1.0f, 0.0f));
+        modelM = glm::scale(modelM, glm::vec3(0.5f));
+
+        myShader.setMat4("M", modelM);
+
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
+        glCullFace(GL_FRONT);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+
+        modelM = glm::mat4(1.0f);
+        myShader.setMat4("M", modelM);
+        
         glBindVertexArray(VAOcamera);
-        glDrawArrays(GL_LINE_LOOP, 0, 4);
+        glDrawArrays(GL_LINE_STRIP, 0, 16);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -159,26 +229,26 @@ void processInput(GLFWwindow* window)
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
     {
-        camera1 = glm::translate(camera1, glm::vec3(0.0f, 0.0f, 0.005f));
-        camera2 = glm::translate(camera2, glm::vec3(0.0f, 0.0f, 0.005f));
+        camera1 = glm::translate(camera1, glm::vec3(0.0f, 0.0f, 0.015f));
+        camera2 = glm::translate(camera2, glm::vec3(0.0f, 0.0f, 0.015f));
     }
 
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
     {
-        camera1 = glm::translate(camera1, glm::vec3(0.0f, 0.0f, -0.005f));
-        camera2 = glm::translate(camera2, glm::vec3(0.0f, 0.0f, -0.005f));
+        camera1 = glm::translate(camera1, glm::vec3(0.0f, 0.0f, -0.015f));
+        camera2 = glm::translate(camera2, glm::vec3(0.0f, 0.0f, -0.015f));
     }
 
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
     {
-        camera1 = glm::translate(camera1, glm::vec3(-0.001f, 0.0f, 0.0f));
-        camera2 = glm::translate(camera2, glm::vec3(-0.001f, 0.0f, 0.0f));
+        camera1 = glm::translate(camera1, glm::vec3(-0.01f, 0.0f, 0.0f));
+        camera2 = glm::translate(camera2, glm::vec3(-0.01f, 0.0f, 0.0f));
     }
 
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
     {
-        camera1 = glm::translate(camera1, glm::vec3(0.001f, 0.0f, 0.0f));
-        camera2 = glm::translate(camera2, glm::vec3(0.001f, 0.0f, 0.0f));
+        camera1 = glm::translate(camera1, glm::vec3(0.01f, 0.0f, 0.0f));
+        camera2 = glm::translate(camera2, glm::vec3(0.01f, 0.0f, 0.0f));
     }
 }
 
