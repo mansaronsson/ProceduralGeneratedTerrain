@@ -50,6 +50,8 @@ int main() {
     glfwSetKeyCallback(window, key_callback);
     
     Shader myShader{ "shaders/vertex.vert", "shaders/fragment.frag" };
+    Shader cameraShader{ "shaders/cameraVertex.vert", "shaders/cameraFragment.frag" };
+
     myShader.use();
     //glm::mat4 camera1{ 1.0f };// = glm::mat4(1.0f);
     //glm::mat4 camera2{ 1.0f };
@@ -58,6 +60,9 @@ int main() {
 
    
     myShader.setMat4("P", perspective2);
+    cameraShader.use();
+    cameraShader.setMat4("P", perspective2);
+
 
     camera1 = glm::translate(camera1, glm::vec3(0.0f, 0.0f, -3.0f));
 
@@ -111,12 +116,6 @@ int main() {
          1.0f,  1.0f,  1.0f, //7
          1.0f, -1.0f,  1.0f, //6
          1.0f, -1.0f,  -1.0f, //2
-
-
-
-
-
-
     };
 
     //Create vertex buffer object
@@ -134,16 +133,16 @@ int main() {
 
 
 
-    auto invproj = glm::inverse(perspective * camera1);
-    float points[3 * 16];
-    for (int i = 0; i < 3 * 16; i += 3) {
-        glm::vec4 v = invproj * glm::vec4(cameraPoints[i], cameraPoints[i + 1], cameraPoints[i + 2], 1.0f);
-        glm::vec3 worldV = v / v.w;
-        std::cout << worldV.x << " " << worldV.y << " " << worldV.z << '\n';
-        points[i] = worldV.x;
-        points[i + 1] = worldV.y;
-        points[i + 2] = worldV.z;
-    }
+    //auto invproj = glm::inverse(perspective * camera1);
+    //float points[3 * 16];
+    //for (int i = 0; i < 3 * 16; i += 3) {
+    //    glm::vec4 v = invproj * glm::vec4(cameraPoints[i], cameraPoints[i + 1], cameraPoints[i + 2], 1.0f);
+    //    glm::vec3 worldV = v / v.w;
+    //    std::cout << worldV.x << " " << worldV.y << " " << worldV.z << '\n';
+    //    points[i] = worldV.x;
+    //    points[i + 1] = worldV.y;
+    //    points[i + 2] = worldV.z;
+    //}
 
     //Create vertex buffer object for camera
     unsigned int VBOcamera, VAOcamera;
@@ -152,7 +151,7 @@ int main() {
     glBindVertexArray(VAOcamera);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBOcamera); //bind
-    glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW); //add data, GL_DYNAMIC_DRAW if data is changed alot  
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cameraPoints), cameraPoints, GL_STATIC_DRAW); //add data, GL_DYNAMIC_DRAW if data is changed alot  
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
@@ -168,10 +167,7 @@ int main() {
         myShader.use();
 
         toggleCamera ? myShader.setMat4("V", camera1) : myShader.setMat4("V", camera2);
-
-
-
-
+        toggleCamera ? myShader.setMat4("P", perspective) : myShader.setMat4("P", perspective2);
 
         float time = glfwGetTime();
         glm::mat4 modelM = glm::mat4(1.0f);
@@ -180,19 +176,27 @@ int main() {
 
         myShader.setMat4("M", modelM);
 
+        glBindVertexArray(VAO);
+
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-        glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
         glCullFace(GL_FRONT);
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
-        modelM = glm::mat4(1.0f);
-        myShader.setMat4("M", modelM);
+        /*modelM = glm::mat4(1.0f);
+        myShader.setMat4("M", modelM);*/
+        auto invproj = glm::inverse(perspective * camera1);
+
+        cameraShader.use();
+        cameraShader.setMat4("InvP", invproj);
+        toggleCamera ? cameraShader.setMat4("V", camera1) : cameraShader.setMat4("V", camera2);
+        //cameraShader.setMat4("V", camera1);
+
         
         glBindVertexArray(VAOcamera);
         glDrawArrays(GL_LINE_STRIP, 0, 16);
