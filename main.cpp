@@ -22,12 +22,13 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 const unsigned int SCREEN_WIDTH = 800, SCREEN_HEIGHT = 600;
 
 glm::mat4 camera1 = glm::mat4(1.0f);
+glm::mat4 camera1translation = glm::mat4(1.0f);
 glm::mat4 camera2 = glm::mat4(1.0f);
 
 bool toggleCamera{ true };
 
-
-double MOUSEX = 0.0, MOUSEY = 0.0;
+double START_MOUSE_X = 0.0, START_MOUSE_Y = 0.0;
+float theta = 0.0f, phi = 0.0f;
 
 glm::mat4 mouserotation = glm::mat4(1.0f);
 
@@ -52,7 +53,6 @@ int main() {
     }
     glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-
     //Callback functions
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetKeyCallback(window, key_callback); //recieve callback when key is pressed or released 
@@ -60,7 +60,6 @@ int main() {
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetScrollCallback(window, scroll_callback);
 
-    
     Shader myShader{ "shaders/vertex.vert", "shaders/fragment.frag" };
     Shader cameraShader{ "shaders/cameraVertex.vert", "shaders/cameraFragment.frag" };
 
@@ -69,12 +68,10 @@ int main() {
     //glm::mat4 camera2{ 1.0f };
     glm::mat4 perspective = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 30.0f);
     glm::mat4 perspective2 = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 100.0f);
-
    
     myShader.setMat4("P", perspective2);
     cameraShader.use();
     cameraShader.setMat4("P", perspective2);
-
 
     camera1 = glm::translate(camera1, glm::vec3(0.0f, 0.0f, -3.0f));
 
@@ -142,9 +139,6 @@ int main() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-
-
-
     //auto invproj = glm::inverse(perspective * camera1);
     //float points[3 * 16];
     //for (int i = 0; i < 3 * 16; i += 3) {
@@ -180,6 +174,7 @@ int main() {
 
         camera1 = glm::mat4(1.0f);
         camera1 = glm::translate(camera1, glm::vec3(0.0f, 0.0f, -3.0f));
+        camera1 = camera1 * camera1translation;
         camera1 = camera1 * mouserotation;
 
         toggleCamera ? myShader.setMat4("V", camera1) : myShader.setMat4("V", camera2);
@@ -187,11 +182,13 @@ int main() {
 
         float time = glfwGetTime();
         glm::mat4 modelM = glm::mat4(1.0f);
+        modelM = glm::translate(modelM, glm::vec3(3.0f, 0.0f, -4.0f));
         modelM = glm::rotate(modelM, glm::radians(45.0f * time), glm::vec3(0.0f, 1.0f, 0.0f));
         modelM = glm::scale(modelM, glm::vec3(0.5f));
 
         myShader.setMat4("M", modelM);
 
+        //Draw triangle
         glBindVertexArray(VAO);
 
         glEnable(GL_CULL_FACE);
@@ -213,7 +210,6 @@ int main() {
         toggleCamera ? cameraShader.setMat4("V", camera1) : cameraShader.setMat4("V", camera2);
         //cameraShader.setMat4("V", camera1);
 
-        
         glBindVertexArray(VAOcamera);
         glDrawArrays(GL_LINE_STRIP, 0, 16);
 
@@ -249,25 +245,25 @@ void processInput(GLFWwindow* window)
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
     {
-        camera1 = glm::translate(camera1, glm::vec3(0.0f, 0.0f, 0.015f));
+        camera1translation = glm::translate(camera1translation, glm::vec3(0.0f, 0.0f, 0.015f));
         camera2 = glm::translate(camera2, glm::vec3(0.0f, 0.0f, 0.015f));
     }
 
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
     {
-        camera1 = glm::translate(camera1, glm::vec3(0.0f, 0.0f, -0.015f));
+        camera1translation = glm::translate(camera1translation, glm::vec3(0.0f, 0.0f, -0.015f));
         camera2 = glm::translate(camera2, glm::vec3(0.0f, 0.0f, -0.015f));
     }
 
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
     {
-        camera1 = glm::translate(camera1, glm::vec3(-0.01f, 0.0f, 0.0f));
+        camera1translation = glm::translate(camera1translation, glm::vec3(-0.01f, 0.0f, 0.0f));
         camera2 = glm::translate(camera2, glm::vec3(-0.01f, 0.0f, 0.0f));
     }
 
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
     {
-        camera1 = glm::translate(camera1, glm::vec3(0.01f, 0.0f, 0.0f));
+        camera1translation = glm::translate(camera1translation, glm::vec3(0.01f, 0.0f, 0.0f));
         camera2 = glm::translate(camera2, glm::vec3(0.01f, 0.0f, 0.0f));
     }
 }
@@ -278,33 +274,49 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     {
         toggleCamera = !toggleCamera;
     }
+    //Reset camera rotations
+    if (key == GLFW_KEY_R && action == GLFW_PRESS) {
+        mouserotation = glm::mat4(1.0f);
+        theta = 0.0f;
+        phi = 0.0f;
+    }
 }
 
 void mouse_position_callback(GLFWwindow* window, double xpos, double ypos) {
     //std::cout << "mouse moved: " << xpos << " " << ypos << '\n';
 
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-        double xoffset = MOUSEX - xpos;
-        double yoffset = MOUSEY - ypos;
-        std::cout << "mouse moved && pressed : " << xoffset << " " << yoffset << "\n";
-        float theta = M_PI * xoffset / SCREEN_WIDTH;
-        float phi = M_PI * yoffset / SCREEN_HEIGHT;
-        std::cout << "theta " << theta << " phi " << phi << '\n';
+
+        double currentX = 0.0, currentY = 0.0;
+        glfwGetCursorPos(window, &currentX, &currentY);
+
+        double xoffset = xpos - START_MOUSE_X ;
+        double yoffset = ypos - START_MOUSE_Y ;
+        //std::cout << "mouse moved && pressed : " << xoffset << " " << yoffset << "\n";
+        theta += M_PI * xoffset / SCREEN_WIDTH;
+        if (theta >= M_PI * 2.0)
+            theta = fmod(theta, M_PI * 2.0);
+        if (theta < 0.0)
+            theta += M_PI * 2.0;
+
+        phi += M_PI * yoffset / SCREEN_HEIGHT;
+        if (phi >= M_PI / 2.0)
+            phi = M_PI / 2.0; //clamp 90
+        if (phi < -M_PI / 2.0)
+            phi = -M_PI / 2.0; //calmp -90
 
         mouserotation = glm::mat4(1.0f);
         mouserotation = glm::rotate(mouserotation, theta, glm::vec3(0.0f, 1.0f, 0.0f));
         mouserotation = glm::rotate(mouserotation, phi, glm::vec3(1.0f, 0.0f, 0.0f));
+    
+        START_MOUSE_X = currentX;
+        START_MOUSE_Y = currentY;
     }
 }
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-        std::cout << "mouse pressed ";
-        double x = 0.0, y = 0.0;
-        glfwGetCursorPos(window, &x, &y);
-        std::cout << "mouse pos: " << x << " " << y << '\n';
-        MOUSEX = x; 
-        MOUSEY = y;
+        glfwGetCursorPos(window, &START_MOUSE_X, &START_MOUSE_Y);
     }
 }
 
