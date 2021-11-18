@@ -8,6 +8,8 @@
 #include "header/Shader.h"
 #define _USE_MATH_DEFINES
 #include <math.h>
+#include "header/Model.h"
+
 
 #include "header/CameraControl.h"
 
@@ -75,11 +77,31 @@ int main() {
     camera2 = glm::rotate(camera2, glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f));
    
     // Create test triangle
-    float vertices[] = {
-    -1.5f, -1.5f, 0.0f,
-     1.5f, -1.5f, 0.0f,
-     0.0f,  1.5f, 0.0f
-    };
+    //float vertices[] = {
+    //-1.5f, -1.5f, 0.0f,
+    // 1.5f, -1.5f, 0.0f,
+    // 0.0f,  1.5f, 0.0f
+    //};
+
+    //unsigned int indices[] = {
+    //    0, 1, 2
+    //};
+
+    std::vector<Vertex> testVertices;
+    Vertex v1, v2, v3;
+    v1.position = glm::vec3{ -1.5f, -1.5f, 0.0f };
+    v2.position = glm::vec3{ 1.5f, -1.5f, 0.0f };
+    v3.position = glm::vec3{ 0.0f,  1.5f, 0.0f };
+    testVertices.push_back(v1);
+    testVertices.push_back(v2);
+    testVertices.push_back(v3);
+
+    std::vector<unsigned int> testIndices;
+    testIndices.push_back(0);
+    testIndices.push_back(1);
+    testIndices.push_back(2);
+
+    Mesh testTriangle{ testVertices, testIndices };
 
     float cameraPoints[] = {
         ////near
@@ -115,18 +137,37 @@ int main() {
          1.0f, -1.0f,  -1.0f, //2
     };
 
-    //Create vertex buffer object
-    unsigned int VBO, VAO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glBindVertexArray(VAO);
+    // Create vertex array object, vertex buffer object, element buffer object
+    //unsigned int VAO, VBO, EBO;
+    //glGenVertexArrays(1, &VAO);
+    //glGenBuffers(1, &VBO);
+    //glGenBuffers(1, &EBO);
 
-    glBindBuffer(GL_ARRAY_BUFFER, VBO); //bind
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW); //add data, GL_DYNAMIC_DRAW if data is changed alot  
+    //glBindVertexArray(VAO);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
+<<<<<<< HEAD
+=======
+    //glBindBuffer(GL_ARRAY_BUFFER, VBO); //bind
+    //glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW); //add data, GL_DYNAMIC_DRAW if data is changed alot  
 
+    //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    //glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    //glEnableVertexAttribArray(0);
+
+    auto invproj = glm::inverse(perspective * camera1);
+    float points[3 * 16];
+    for (int i = 0; i < 3 * 16; i += 3) {
+        glm::vec4 v = invproj * glm::vec4(cameraPoints[i], cameraPoints[i + 1], cameraPoints[i + 2], 1.0f);
+        glm::vec3 worldV = v / v.w;
+        std::cout << worldV.x << " " << worldV.y << " " << worldV.z << '\n';
+        points[i] = worldV.x;
+        points[i + 1] = worldV.y;
+        points[i + 2] = worldV.z;
+    }
+
+>>>>>>> cb36cdc (Added Model class with draw functionality)
     //Create vertex buffer object for camera
     unsigned int VBOcamera, VAOcamera;
     glGenVertexArrays(1, &VAOcamera);
@@ -139,7 +180,9 @@ int main() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    // Render loop
+    /*****************
+    *  Render loop   *
+    *****************/
     while (!glfwWindowShouldClose(window))
     {
         processInput(window);
@@ -150,10 +193,20 @@ int main() {
 
         myShader.use();
 
+<<<<<<< HEAD
         glm::mat4 camera1 = camera1Control.computeCameraMatrix();
 
         toggleCamera ? myShader.setMat4("V", camera1) : myShader.setMat4("V", camera2);
         toggleCamera ? myShader.setMat4("P", perspective) : myShader.setMat4("P", perspective2);
+=======
+        toggleCamera ? myShader.setMat4("V", camera1) : myShader.setMat4("V", camera2);
+
+        /* TODO:
+            Skapa en Model class som tar in vertices och skapar VAO, VBO, EBO.
+            Sparar VAO som ID variable.
+            Har en funktion darw, som tar en int som input (typ GL_TRIANGLES) för att bestämma vad som ska ritas.
+        */
+>>>>>>> cb36cdc (Added Model class with draw functionality)
 
         float time = glfwGetTime();
         glm::mat4 modelM = glm::mat4(1.0f);
@@ -163,6 +216,7 @@ int main() {
 
         myShader.setMat4("M", modelM);
 
+<<<<<<< HEAD
         //Draw triangle
         glBindVertexArray(VAO);
 
@@ -175,6 +229,9 @@ int main() {
         glCullFace(GL_FRONT);
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         glDrawArrays(GL_TRIANGLES, 0, 3);
+=======
+        testTriangle.draw(GL_TRIANGLES);
+>>>>>>> cb36cdc (Added Model class with draw functionality)
 
         /*modelM = glm::mat4(1.0f);
         myShader.setMat4("M", modelM);*/
