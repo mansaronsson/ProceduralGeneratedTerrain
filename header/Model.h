@@ -9,7 +9,7 @@
 struct Vertex
 {
 	glm::vec3 position;
-	glm::vec3 normal;
+	glm::vec3 normal = glm::vec3{ 0.0 };
 };
 
 class Mesh
@@ -18,7 +18,8 @@ public:
 	std::vector<Vertex> vertices;
 	std::vector<unsigned int> indices;
 
-	Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices);
+	Mesh() = default;
+	Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices);
 	
 	void draw(int polygonMode);
 private:

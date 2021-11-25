@@ -7,40 +7,62 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
+enum CameraMovement {
+	FORWARD, BACKWARD, LEFT, RIGHT, ASCEND, DESCEND
+};
+
 class CameraControl {
 public:
-	CameraControl(const glm::vec3& startpos) : startposition{ startpos }, phi{ 0.0f }, theta{ 0.0f },
-		mouseX{ 0.0 }, mouseY{ 0.0 }, rotation{ 1.0f }, translation{ 1.0f }, result{ 1.0f } {}
+	CameraControl(const glm::vec3& startpos) : position{ startpos }, up{ glm::vec3{0.0f, 1.0f, 0.0f} }, front{ glm::vec3{0.0f, 0.0f, -1.0f} }, Yaw{ 0.0f },
+		Pitch{ 0.0f }, mouseX{ 0.0 }, mouseY{ 0.0 }, cameraSpeed{ 5.0f } {
+		worldUp = up;
+		updateCameraVectors();
+	}
 
+	/// <summary>
+	/// Get the start location of mouse when first start draging
+	/// </summary>
+	/// <param name="window"></param>
 	void setMouseStartPos(GLFWwindow* window);
 
 	/// <summary>
 	/// Translates the camera x,y,z amount from current position
 	/// </summary>
 	/// <param name="move"></param>
-	void moveCamera(const glm::vec3& move);
+	void moveCamera(CameraMovement direction, float deltaTime);
 
 	/// <summary>
-	/// 
+	/// Poll mouse movement and update rotation accordingly 
 	/// </summary>
 	/// <param name="window"></param>
-	void pollMouse(GLFWwindow* window);
+	void pollMouse(GLFWwindow* window, unsigned int SCREEN_WIDTH, unsigned int SCREEN_HEIGHT);
 
 	/// <summary>
-	/// Compute the view matrix rototation * translation of the camera
+	/// Compute the view matrix for camera 
 	/// </summary>
 	/// <returns></returns>
-	const glm::mat4& computeCameraMatrix();
+	const glm::mat4& computeCameraViewMatrix();
 
 	/// <summary>
 	/// Reset rotation of camera, position is unchanged
 	/// </summary>
 	void resetCamera();
 
+	glm::vec3 getCameraPosition() const;
+
 private:
-	float phi, theta;
+	/// <summary>
+	/// Recompute front, up and right vectors
+	/// </summary>
+	void updateCameraVectors();
+
+	float Yaw, Pitch;
 	double mouseX, mouseY;
-	glm::mat4 rotation, translation;
-	glm::vec3 startposition;
-	glm::mat4 result;
+	float cameraSpeed;
+
+	glm::vec3 position;
+	glm::vec3 front;
+	glm::vec3 up;
+	glm::vec3 right;
+	glm::vec3 worldUp;	
 };

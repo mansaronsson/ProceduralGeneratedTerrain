@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtc/noise.hpp>
 #include <glad/glad.h> //must be included before glfw 
 #include <GLFW/glfw3.h>
 #include "header/Shader.h"
@@ -11,6 +12,8 @@
 #include "header/Model.h"
 
 #include "header/CameraControl.h"
+#include "header/ChunkHandler.h"
+
 
 void initialize();
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -32,8 +35,11 @@ bool toggleCamera{ true };
 
 CameraControl camera1Control{ glm::vec3{ 0.0f, 0.0f, -3.0f } };
 
+
+float deltaTime = 0.0f, lastFrame = 0.0f;
+
 int main() {
-    
+
     initialize();
     //create window
     GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Procedural Terrain", NULL, NULL);
@@ -62,28 +68,33 @@ int main() {
 
     Shader myShader{ "shaders/vertex.vert", "shaders/fragment.frag" };
     Shader cameraShader{ "shaders/cameraVertex.vert", "shaders/cameraFragment.frag" };
+    Shader boundingBoxShader{ "shaders/boundingBoxVertex.vert", "shaders/boundingBoxFragment.frag" };
 
     myShader.use();
 
     glm::mat4 perspective = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 30.0f);
     glm::mat4 perspective2 = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 100.0f);
-   
+
     myShader.setMat4("P", perspective2);
     cameraShader.use();
     cameraShader.setMat4("P", perspective2);
 
     camera2 = glm::translate(camera2, glm::vec3(0.0f, -5.0f, -25.0f));
     camera2 = glm::rotate(camera2, glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-   
+
     // Create test triangle
     std::vector<Vertex> testVertices;
-    Vertex v1, v2, v3;
-    v1.position = glm::vec3{ -1.5f, -1.5f, 0.0f };
-    v2.position = glm::vec3{ 1.5f, -1.5f, 0.0f };
-    v3.position = glm::vec3{ 0.0f,  1.5f, 0.0f };
-    testVertices.push_back(v1);
-    testVertices.push_back(v2);
-    testVertices.push_back(v3);
+    Vertex v1_1, v2_2, v3_3;
+    v1_1.position = glm::vec3{ -1.5f, -1.5f, 0.0f };
+    v2_2.position = glm::vec3{ 1.5f, -1.5f, 0.0f };
+    v3_3.position = glm::vec3{ 0.0f,  1.5f, 0.0f };
+    glm::vec3 n = glm::vec3{ 0.0f, 0.0f, 1.0f };
+    v1_1.normal = n;
+    v2_2.normal = n;
+    v3_3.normal = n;
+    testVertices.push_back(v1_1);
+    testVertices.push_back(v2_2);
+    testVertices.push_back(v3_3);
 
     std::vector<unsigned int> testIndices;
     testIndices.push_back(0);
@@ -114,7 +125,50 @@ int main() {
          1.0f, -1.0f,  1.0f, //6
          1.0f, -1.0f,  -1.0f, //2
     };
+    Vertex v1{ glm::vec3{-1.0f, -1.0f, -1.0f} }, v2{ glm::vec3{1.0f, -1.0f, -1.0f} }, v3{ glm::vec3{1.0f, 1.0f, -1.0f} },
+        v4{ glm::vec3{-1.0f, 1.0f, -1.0f} }, v5{ glm::vec3{-1.0f, -1.0f, 1.0f} }, v6{ glm::vec3{1.0f, -1.0f, 1.0f} },
+        v7{ glm::vec3{1.0f, 1.0f, 1.0f} }, v8{ glm::vec3{-1.0f, 1.0f, 1.0f} };
+    
+    std::vector<Vertex> campoints{ v1, v2, v3, v4, v5, v6, v7, v8 };
+    std::vector<unsigned int> camIndices{ 
+        0, 1, 2, 3, 0, //near plane
+        4, 5, 6, 7, 4, //far plane
+        7, 3, 2, 6, 5, 1 //diagonal lines
+    };
 
+    Mesh camera1Mesh{ campoints, camIndices };
+
+    
+    ChunkHandler chandler{200, 0.1f , 2.3f};
+
+    /*
+    [vert index ]= generatechunk(); <- vertex + indices 
+    Mesh chunkmesh(vert,index);
+
+    Chunk = generatechunk -> mesh 
+    chunk.draw();
+    
+    chunks 
+
+    Chunk calss
+
+    ChunkHandler class ->
+    lista av alla chunks, loopar -> draw
+    generar nya chunks  -> skickar noise parametrar 
+    ta bort gamla
+
+
+    chunk class 
+    generatechunk -> noise 
+    mesh 
+    draw
+     mesh-draw
+    
+    */
+
+    //std::cout << camIndices.size();
+
+    //std::cout << glm::perlin(glm::vec3{ 1.0f / scaling, 1.3f, 0.0f });
 
     //Create vertex buffer object for camera
     unsigned int VBOcamera, VAOcamera;
@@ -128,44 +182,62 @@ int main() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
+    //OpenGL render Settings
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+
     /*****************
     *  Render loop   *
     *****************/
+
+    float timer{ 0.0f };
+    
     while (!glfwWindowShouldClose(window))
     {
+        //compute delta time between frames.
+        float currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+        //display fps
+        if (timer <= 0.0f) {
+            std::string title = "fps: " + std::to_string(1.0f / deltaTime);
+            glfwSetWindowTitle(window, title.c_str());
+            timer = 0.1f;
+        }
+        else
+        {
+            timer -= deltaTime;
+        }
+        //process inputs 
         processInput(window);
-        camera1Control.pollMouse(window);
+        camera1Control.pollMouse(window, SCREEN_WIDTH, SCREEN_HEIGHT);
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        glm::mat4 camera1 = camera1Control.computeCameraViewMatrix();
+        glm::mat4 modelM = glm::mat4(1.0f);
+
+        /*** Draw terrain chunks ***/
         myShader.use();
-
-        glm::mat4 camera1 = camera1Control.computeCameraMatrix();
-
+        myShader.setMat4("M", modelM);
         toggleCamera ? myShader.setMat4("V", camera1) : myShader.setMat4("V", camera2);
         toggleCamera ? myShader.setMat4("P", perspective) : myShader.setMat4("P", perspective2);
+        chandler.draw();
 
-        float time = glfwGetTime();
-        glm::mat4 modelM = glm::mat4(1.0f);
-        modelM = glm::translate(modelM, glm::vec3(3.0f, 0.0f, -4.0f));
-        modelM = glm::rotate(modelM, glm::radians(45.0f * time), glm::vec3(0.0f, 1.0f, 0.0f));
-        modelM = glm::scale(modelM, glm::vec3(0.5f));
+        /*** Draw bounding boxes around  ***/
+        boundingBoxShader.use();
+        boundingBoxShader.setMat4("M", modelM);
+        toggleCamera ? boundingBoxShader.setMat4("V", camera1) : boundingBoxShader.setMat4("V", camera2);
+        toggleCamera ? boundingBoxShader.setMat4("P", perspective) : boundingBoxShader.setMat4("P", perspective2);
+        chandler.drawBoundingBox();
 
-        myShader.setMat4("M", modelM);
-
-        testTriangle.draw(GL_TRIANGLES);
-
-        /*modelM = glm::mat4(1.0f);
-        myShader.setMat4("M", modelM);*/
+        /*** Draw camera frustum ***/
         auto invproj = glm::inverse(perspective * camera1);
         cameraShader.use();
         cameraShader.setMat4("InvP", invproj);
         toggleCamera ? cameraShader.setMat4("V", camera1) : cameraShader.setMat4("V", camera2);
-        //cameraShader.setMat4("V", camera1);
-
-        glBindVertexArray(VAOcamera);
-        glDrawArrays(GL_LINE_STRIP, 0, 16);
+        camera1Mesh.draw(GL_LINE_STRIP);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -199,27 +271,46 @@ void processInput(GLFWwindow* window)
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
     {
-        camera1Control.moveCamera(glm::vec3(0.0f, 0.0f, 0.015f));
+        camera1Control.moveCamera(FORWARD, deltaTime);
+        //camera1Control.moveCamera(glm::vec3(0.0f, 0.0f, 0.015f));
         camera2 = glm::translate(camera2, glm::vec3(0.0f, 0.0f, 0.015f));
     }
 
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
     {
-        camera1Control.moveCamera(glm::vec3(0.0f, 0.0f, -0.015f));
+        //camera1Control.moveCamera(glm::vec3(0.0f, 0.0f, -0.015f));
+        camera1Control.moveCamera(BACKWARD, deltaTime);
         camera2 = glm::translate(camera2, glm::vec3(0.0f, 0.0f, -0.015f));
     }
 
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
     {
-        camera1Control.moveCamera(glm::vec3(-0.01f, 0.0f, 0.0f));
-        camera2 = glm::translate(camera2, glm::vec3(-0.01f, 0.0f, 0.0f));
+        //camera1Control.moveCamera(glm::vec3(0.01f, 0.0f, 0.0f));
+        camera1Control.moveCamera(LEFT, deltaTime);
+        camera2 = glm::translate(camera2, glm::vec3(0.01f, 0.0f, 0.0f));
     }
 
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
     {
-        camera1Control.moveCamera(glm::vec3(0.01f, 0.0f, 0.0f));
-        camera2 = glm::translate(camera2, glm::vec3(0.01f, 0.0f, 0.0f));
+        //camera1Control.moveCamera(glm::vec3(-0.01f, 0.0f, 0.0f));
+        camera1Control.moveCamera(RIGHT, deltaTime);
+        camera2 = glm::translate(camera2, glm::vec3(-0.01f, 0.0f, 0.0f));
     }
+
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+    {
+        //camera1Control.moveCamera(glm::vec3(0.0f, -0.01f, 0.0f));
+        camera1Control.moveCamera(DESCEND, deltaTime);
+        camera2 = glm::translate(camera2, glm::vec3(0.0f, -0.01f, 0.0f));
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+    {
+        //camera1Control.moveCamera(glm::vec3(0.0f, 0.01f, 0.0f));
+        camera1Control.moveCamera(ASCEND, deltaTime);
+        camera2 = glm::translate(camera2, glm::vec3(0.0f, 0.01f, 0.0f));
+    }
+   
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
