@@ -33,7 +33,7 @@ glm::mat4 camera2 = glm::mat4(1.0f);
 
 bool toggleCamera{ true };
 
-CameraControl camera1Control{ glm::vec3{ 0.0f, 0.0f, -3.0f } };
+CameraControl camera1Control{ glm::vec3{ 0.0f, 1.0f, 0.0f } };
 
 
 float deltaTime = 0.0f, lastFrame = 0.0f;
@@ -49,6 +49,7 @@ int main() {
         glfwTerminate();
         return -1;
     }
+
     glfwMakeContextCurrent(window);
 
     //load opengl functions using glad
@@ -138,8 +139,7 @@ int main() {
 
     Mesh camera1Mesh{ campoints, camIndices };
 
-    
-    ChunkHandler chandler{200, 0.1f , 2.3f};
+    ChunkHandler chandler{5, 50, 0.1f , 1.8f };   // (gridSize, nrVertices, spacing, yScale)
 
     /*
     [vert index ]= generatechunk(); <- vertex + indices 
@@ -217,6 +217,9 @@ int main() {
 
         glm::mat4 camera1 = camera1Control.computeCameraViewMatrix();
         glm::mat4 modelM = glm::mat4(1.0f);
+
+        /*** Update terrain chiunks ***/
+        chandler.checkChunk(camera1Control.getCameraPosition());
 
         /*** Draw terrain chunks ***/
         myShader.use();

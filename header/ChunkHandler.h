@@ -18,7 +18,7 @@ public:
 	/// <param name="nrVertices">number of vertecies per chunk</param>
 	/// <param name="spacing">distance between vertices</param>
 	/// <param name="yscale">how much to scale in the y direction</param>
-	ChunkHandler(size_t nrVertices, float spacing, float yscale);
+	ChunkHandler(size_t _gridSize, size_t _nrVertices, float _spacing, float _yscale);
 
 
 	void draw() {
@@ -174,6 +174,8 @@ private:
 					vertices[index(width, depth)].normal = normal;
 				}
 			}
+
+
 			mesh = Mesh{ vertices, indices };
 
 			//create boundingbox
@@ -190,6 +192,10 @@ private:
 			//	<< glm::to_string(p7) << " " << glm::to_string(p8) << '\n' << '\n';
 
 			boundingBox = BoundingBox{ p1, p2, p3, p4, p5, p6, p7, p8 };
+		}
+
+		glm::vec3 getPostition() {
+			return mesh.vertices[0].position;
 		}
 
 		void draw() {
@@ -214,10 +220,15 @@ private:
 	/*End of chunk class*/
 
 	unsigned int index(int col, int row) {
-		return col + chunkGridSize * row;
+		return col + gridSize * row;
 	}
 
-	const int chunkGridSize = 3;
+
+	const size_t gridSize;
+	const size_t nrVertices;
+	const float spacing;
+	const float yscale;
+
 	std::vector<Chunk*> chunks;
 	Chunk* currentChunk;
 };
