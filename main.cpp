@@ -13,6 +13,7 @@
 
 #include "header/CameraControl.h"
 #include "header/ChunkHandler.h"
+#include "header/CameraPlane.h"
 
 
 void initialize();
@@ -23,6 +24,8 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 void mouse_position_callback(GLFWwindow* window, double xpos, double ypos);
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+std::vector<CameraPlane> computeCameraPlanes(const std::vector<glm::vec3>& points);
+void updateCamera2();
 
 void printmat4(const glm::mat4& mat);
 
@@ -37,6 +40,8 @@ CameraControl camera1Control{ glm::vec3{ 0.0f, 1.0f, 0.0f } };
 
 
 float deltaTime = 0.0f, lastFrame = 0.0f;
+
+bool cull = false, wireFrame = false, drawbb = false;
 
 int main() {
 
@@ -67,65 +72,21 @@ int main() {
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetScrollCallback(window, scroll_callback);
 
+    /*** Shaders ***/
     Shader myShader{ "shaders/vertex.vert", "shaders/fragment.frag" };
     Shader cameraShader{ "shaders/cameraVertex.vert", "shaders/cameraFragment.frag" };
     Shader boundingBoxShader{ "shaders/boundingBoxVertex.vert", "shaders/boundingBoxFragment.frag" };
 
-    myShader.use();
-
     glm::mat4 perspective = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 30.0f);
     glm::mat4 perspective2 = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 100.0f);
 
-    myShader.setMat4("P", perspective2);
+    /*** Always use the larger perspective to render camera frustum, otherwise it risk being culled in viewport ***/
     cameraShader.use();
     cameraShader.setMat4("P", perspective2);
-
+    /*** Set camera 2 start position and rotation ***/
     camera2 = glm::translate(camera2, glm::vec3(0.0f, -5.0f, -25.0f));
     camera2 = glm::rotate(camera2, glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-
-    // Create test triangle
-    std::vector<Vertex> testVertices;
-    Vertex v1_1, v2_2, v3_3;
-    v1_1.position = glm::vec3{ -1.5f, -1.5f, 0.0f };
-    v2_2.position = glm::vec3{ 1.5f, -1.5f, 0.0f };
-    v3_3.position = glm::vec3{ 0.0f,  1.5f, 0.0f };
-    glm::vec3 n = glm::vec3{ 0.0f, 0.0f, 1.0f };
-    v1_1.normal = n;
-    v2_2.normal = n;
-    v3_3.normal = n;
-    testVertices.push_back(v1_1);
-    testVertices.push_back(v2_2);
-    testVertices.push_back(v3_3);
-
-    std::vector<unsigned int> testIndices;
-    testIndices.push_back(0);
-    testIndices.push_back(1);
-    testIndices.push_back(2);
-
-    Mesh testTriangle{ testVertices, testIndices };
-
-    float cameraPoints[] = {
-        //near
-        -1.0f, -1.0f,  -1.0f, //1
-         1.0f, -1.0f,  -1.0f, //2
-         1.0f,  1.0f,  -1.0f, //3
-        -1.0f,  1.0f,  -1.0f, //4
-        -1.0f, -1.0f,  -1.0f, //1
-
-        //far
-        -1.0f, -1.0f,  1.0f, //5
-         1.0f, -1.0f,  1.0f, //6
-         1.0f,  1.0f,  1.0f, //7
-        -1.0f,  1.0f,  1.0f, //8
-        -1.0f, -1.0f,  1.0f, //5
-
-        -1.0f,  1.0f,  1.0f, //8
-        -1.0f,  1.0f, -1.0f, //4
-         1.0f,  1.0f,  -1.0f, //3
-         1.0f,  1.0f,  1.0f, //7
-         1.0f, -1.0f,  1.0f, //6
-         1.0f, -1.0f,  -1.0f, //2
-    };
+    
     Vertex v1{ glm::vec3{-1.0f, -1.0f, -1.0f} }, v2{ glm::vec3{1.0f, -1.0f, -1.0f} }, v3{ glm::vec3{1.0f, 1.0f, -1.0f} },
         v4{ glm::vec3{-1.0f, 1.0f, -1.0f} }, v5{ glm::vec3{-1.0f, -1.0f, 1.0f} }, v6{ glm::vec3{1.0f, -1.0f, 1.0f} },
         v7{ glm::vec3{1.0f, 1.0f, 1.0f} }, v8{ glm::vec3{-1.0f, 1.0f, 1.0f} };
@@ -139,48 +100,7 @@ int main() {
 
     Mesh camera1Mesh{ campoints, camIndices };
 
-    ChunkHandler chandler{5, 50, 0.1f , 1.8f };   // (gridSize, nrVertices, spacing, yScale)
-
-    /*
-    [vert index ]= generatechunk(); <- vertex + indices 
-    Mesh chunkmesh(vert,index);
-
-    Chunk = generatechunk -> mesh 
-    chunk.draw();
-    
-    chunks 
-
-    Chunk calss
-
-    ChunkHandler class ->
-    lista av alla chunks, loopar -> draw
-    generar nya chunks  -> skickar noise parametrar 
-    ta bort gamla
-
-
-    chunk class 
-    generatechunk -> noise 
-    mesh 
-    draw
-     mesh-draw
-    
-    */
-
-    //std::cout << camIndices.size();
-
-    //std::cout << glm::perlin(glm::vec3{ 1.0f / scaling, 1.3f, 0.0f });
-
-    //Create vertex buffer object for camera
-    unsigned int VBOcamera, VAOcamera;
-    glGenVertexArrays(1, &VAOcamera);
-    glGenBuffers(1, &VBOcamera);
-    glBindVertexArray(VAOcamera);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBOcamera); //bind
-    glBufferData(GL_ARRAY_BUFFER, sizeof(cameraPoints), cameraPoints, GL_STATIC_DRAW); //add data, GL_DYNAMIC_DRAW if data is changed alot  
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
+    ChunkHandler chandler{7, 50, 0.1f , 1.8f };   // (gridSize, nrVertices, spacing, yScale)
 
     //OpenGL render Settings
     glEnable(GL_DEPTH_TEST);
@@ -226,14 +146,22 @@ int main() {
         myShader.setMat4("M", modelM);
         toggleCamera ? myShader.setMat4("V", camera1) : myShader.setMat4("V", camera2);
         toggleCamera ? myShader.setMat4("P", perspective) : myShader.setMat4("P", perspective2);
-        chandler.draw();
+        if (wireFrame) {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            chandler.draw();
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
+        }
+        else {
+            chandler.draw();
+        }
         /*** Draw bounding boxes around  ***/
         boundingBoxShader.use();
         boundingBoxShader.setMat4("M", modelM);
         toggleCamera ? boundingBoxShader.setMat4("V", camera1) : boundingBoxShader.setMat4("V", camera2);
         toggleCamera ? boundingBoxShader.setMat4("P", perspective) : boundingBoxShader.setMat4("P", perspective2);
-        chandler.drawBoundingBox();
+        if(drawbb)
+            chandler.drawBoundingBox();
 
         /*** Draw camera frustum ***/
         auto invproj = glm::inverse(perspective * camera1);
@@ -241,6 +169,36 @@ int main() {
         cameraShader.setMat4("InvP", invproj);
         toggleCamera ? cameraShader.setMat4("V", camera1) : cameraShader.setMat4("V", camera2);
         camera1Mesh.draw(GL_LINE_STRIP);
+        
+        /*** Compute camera frustum points in world coordinates ***/
+        std::vector<glm::vec3> worldCamPoints;
+        worldCamPoints.reserve(campoints.size());
+        for (int i = 0; i < campoints.size(); ++i) {
+            glm::vec4 p = invproj * glm::vec4(campoints[i].position, 1.0f);
+            glm::vec3 c = glm::vec3{ p.x / p.w, p.y / p.w, p.z / p.w };
+            worldCamPoints.push_back(c);
+        }
+        auto planes = computeCameraPlanes(worldCamPoints);
+
+        /*** Cull terrain ***/
+        if (cull) {
+            chandler.cullTerrain(cull);
+        }
+        else {
+            chandler.cullTerrainChunk(planes);
+        }
+
+        //if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
+        //    //printmat4(invproj);
+        //    //std::cout << '\n';
+        //    for (int i = 0; i < campoints.size(); ++i) {
+        //        glm::vec4 p = (invproj) * glm::vec4(campoints[i].position, 1.0f);
+        //        glm::vec3 c = glm::vec3{ p.x / p.w, p.y / p.w, p.z / p.w };
+        //        //std::cout << "point " << i+1 << ": "  << c.x << " " << c.y << " " << c.z << '\n';
+        //    }
+        //    //std::cout << '\n';
+
+        //}
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -248,6 +206,43 @@ int main() {
 
     glfwTerminate();
 	return 0;
+}
+
+std::vector<CameraPlane> computeCameraPlanes(const std::vector<glm::vec3>& points) {
+    //top plane
+    glm::vec3 e1 = points[7] - points[3];
+    glm::vec3 e2 = points[2] - points[3];
+    CameraPlane p1{ points[3], glm::normalize(glm::cross(e2, e1)) };
+    //std::cout << "top plane normal y: " << p1.normal.y << '\n';
+    //bottom plane
+    e1 = points[4] - points[0];
+    e2 = points[1] - points[0];
+    CameraPlane p2{ points[0], glm::normalize(glm::cross(e1, e2)) };
+    //std::cout << "bottom plane normal y: " << p2.normal.y << '\n';
+    //left plane 
+    e1 = points[7] - points[3];
+    e2 = points[0] - points[3];
+    CameraPlane p3{ points[3], glm::normalize(glm::cross(e1, e2)) };
+    //std::cout << "left plane normal x: " << p3.normal.x << '\n';
+    //rightplane
+    e1 = points[6] - points[2];
+    e2 = points[1] - points[2];
+    CameraPlane p4{ points[2], glm::normalize(glm::cross(e2, e1)) };
+    //std::cout << "right plane normal x: " << p4.normal.x << '\n';
+    //far plane
+    e1 = points[7] - points[6];
+    e2 = points[5] - points[6];
+    CameraPlane p5{ points[6], glm::normalize(glm::cross(e2, e1)) };
+    //std::cout << "far plane normal z: " << p5.normal.z << '\n';
+    //near plane ?? 
+    e1 = points[3] - points[2];
+    e2 = points[1] - points[2];
+    CameraPlane p6{ points[2], glm::normalize(glm::cross(e1, e2)) };
+    //std::cout << "near plane normal z: " << p6.normal.z << '\n';
+
+    //std::cout << '\n';
+    //TODO check if near plane is necessary
+    return std::vector<CameraPlane>{p1, p2, p3, p4, p5};
 }
 
 
@@ -275,45 +270,46 @@ void processInput(GLFWwindow* window)
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
     {
         camera1Control.moveCamera(FORWARD, deltaTime);
-        //camera1Control.moveCamera(glm::vec3(0.0f, 0.0f, 0.015f));
-        camera2 = glm::translate(camera2, glm::vec3(0.0f, 0.0f, 0.015f));
+        updateCamera2();
     }
 
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
     {
-        //camera1Control.moveCamera(glm::vec3(0.0f, 0.0f, -0.015f));
         camera1Control.moveCamera(BACKWARD, deltaTime);
-        camera2 = glm::translate(camera2, glm::vec3(0.0f, 0.0f, -0.015f));
+        updateCamera2();
     }
 
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
     {
-        //camera1Control.moveCamera(glm::vec3(0.01f, 0.0f, 0.0f));
         camera1Control.moveCamera(LEFT, deltaTime);
-        camera2 = glm::translate(camera2, glm::vec3(0.01f, 0.0f, 0.0f));
+        updateCamera2();
     }
 
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
     {
-        //camera1Control.moveCamera(glm::vec3(-0.01f, 0.0f, 0.0f));
         camera1Control.moveCamera(RIGHT, deltaTime);
-        camera2 = glm::translate(camera2, glm::vec3(-0.01f, 0.0f, 0.0f));
+        updateCamera2();
     }
 
     if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
     {
-        //camera1Control.moveCamera(glm::vec3(0.0f, -0.01f, 0.0f));
         camera1Control.moveCamera(DESCEND, deltaTime);
-        camera2 = glm::translate(camera2, glm::vec3(0.0f, -0.01f, 0.0f));
+        updateCamera2();
     }
 
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
     {
-        //camera1Control.moveCamera(glm::vec3(0.0f, 0.01f, 0.0f));
         camera1Control.moveCamera(ASCEND, deltaTime);
-        camera2 = glm::translate(camera2, glm::vec3(0.0f, 0.01f, 0.0f));
+        updateCamera2();
     }
    
+}
+
+void updateCamera2() {
+    camera2 = glm::mat4{ 1.0f };
+    camera2 = glm::rotate(camera2, glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    camera2 = glm::translate(camera2, -camera1Control.getCameraPosition());
+    camera2 = glm::translate(camera2, glm::vec3(0.0f, -20.0f, -15.0f));
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -326,6 +322,17 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     if (key == GLFW_KEY_R && action == GLFW_PRESS) {
         camera1Control.resetCamera();
     }
+    if (key == GLFW_KEY_C && action == GLFW_PRESS) {
+        cull = !cull;
+    }
+    if (key == GLFW_KEY_V && action == GLFW_PRESS) {
+        wireFrame = !wireFrame;
+    }
+    if (key == GLFW_KEY_B && action == GLFW_PRESS) {
+        drawbb = !drawbb;
+    }
+
+    
 }
 
 void mouse_position_callback(GLFWwindow* window, double xpos, double ypos) {

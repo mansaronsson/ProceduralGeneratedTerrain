@@ -7,6 +7,11 @@
 class BoundingBox {
 public:
 	BoundingBox() = default;
+
+	/// <summary>
+	/// p1-p4 are top vertices of bounding box given clockwise
+	/// p5-p8 are bottom verticies given clockwise
+	/// </summary>
 	BoundingBox(const glm::vec3& _p1, const glm::vec3& _p2, const glm::vec3& _p3, const glm::vec3& _p4, 
 		const glm::vec3& _p5, const glm::vec3& _p6, const glm::vec3& _p7, const glm::vec3& _p8) :
 		p1{ _p1 }, p2{ _p2 }, p3{ _p3 }, p4{ _p4 }, p5{ _p5 }, p6{ _p6 }, p7{ _p7 }, p8{ _p8 } {
@@ -33,9 +38,9 @@ public:
 		glEnable(GL_CULL_FACE);
 	}
 
+	glm::vec3 p1, p2, p3, p4, p5, p6, p7, p8;
 
 private:
 	Mesh boundingMesh;
 
-	glm::vec3 p1, p2, p3, p4, p5, p6, p7, p8;
 };

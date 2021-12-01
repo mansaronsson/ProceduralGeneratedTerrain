@@ -50,14 +50,19 @@ void CameraControl::pollMouse(GLFWwindow* window, unsigned int SCREEN_WIDTH, uns
         double yoffset = mouseY - currentY; 
         
         //Yaw += M_PI * xoffset / SCREEN_WIDTH;
-        Yaw += 90.0f * xoffset / SCREEN_WIDTH;
+        // Use limit ?
+        Yaw += 180.0f * xoffset / SCREEN_WIDTH;
+        //Yaw += xoffset;
         //if (Yaw >= M_PI * 2.0)
         //    Yaw = fmod(Yaw, M_PI * 2.0);
         //if (Yaw < 0.0)
         //    Yaw += M_PI * 2.0;
 
         //Pitch += M_PI * yoffset / SCREEN_HEIGHT;
-        Pitch += 90.0f * yoffset / SCREEN_HEIGHT;
+        // Use limit?
+        //Pitch += 90.0f * yoffset / SCREEN_HEIGHT;
+        Pitch += 180.0f * yoffset / SCREEN_HEIGHT;
+
         if (Pitch >= 89.0f)
             Pitch = 89.0f; //clamp 90
         if (Pitch < -89.0f)
