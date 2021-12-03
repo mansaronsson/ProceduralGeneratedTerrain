@@ -24,8 +24,7 @@ void main() {
 		color = vec3(0.2, 0.2, 0.7);
 	}
 	
-
-	outColor = vec4(0.1, 0.1, 0.1, 1.0) +  k *  vec4(color, 1.0);
+	outColor = vec4(0.1, 0.1, 0.1, 1.0) + k * vec4(color, 1.0);
 }
 
 /*#version 330 core

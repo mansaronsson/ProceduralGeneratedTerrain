@@ -16,7 +16,8 @@ public:
 	/// <summary>
 	/// Create a chunk handler 
 	/// </summary>
-	/// <param name="nrVertices">number of vertecies per chunk</param>
+	/// <param name="_gridSize"> number of chunks in a A x A grid </param>
+	/// <param name="nrVertices">number of vertecies per chunk excluding skirts</param>
 	/// <param name="spacing">distance between vertices</param>
 	/// <param name="yscale">how much to scale in the y direction</param>
 	ChunkHandler(size_t _gridSize, size_t _nrVertices, float _spacing, float _yscale);
@@ -61,7 +62,6 @@ public:
 	void cullTerrainChunk(const std::vector<CameraPlane>& cameraPlanes);
 
 private:
-	//using enum chunkChecker;
 	class Chunk {
 	public:
 		/// <summary>
@@ -87,7 +87,29 @@ private:
 			if (drawChunk)
 				boundingBox.draw();
 		}
+		/// <summary>
+		/// Create noisy point at position x,z computes height y
+		/// TODO: make noise dependent on variables
+		/// </summary>
+		glm::vec3 createPointWithNoise(float x, float z, float* minY = nullptr, float* maxY = nullptr) const;
+		/// <summary>
+		/// Helper function computes x & z position in grid
+		/// </summary>
+		std::pair<float, float> computeXZpos(int width, int depth) const;
+		/// <summary>
+		/// Helper function create fake vertex to help compute normal
+		/// </summary>
+		glm::vec3 createFakeVertex(int width, int depth) const;
 		
+		/// <summary>
+		/// Compute normalized normal at point v0 from neighboring triangles connected by points p, in order: ne, n, nw, w, sw, s, se, e
+		/// triangle order can be seen in project notes
+		/// </summary>
+		/// <param name="p">: neighboring poins: ne, n, nw, w, sw, s, se, e </param>
+		/// <param name="v0">: starting point </param>
+		glm::vec3 computeNormal(const std::vector<glm::vec3>& p,const glm::vec3& v0) const;
+
+
 		chunkChecker isInside(const glm::vec3& pos);
 
 		/// <summary>
@@ -101,11 +123,13 @@ private:
 		bool drawChunk = true;
 
 	private:
+		//Helper variables, start pos x & z and spacing between vertices
+		float XPOS, ZPOS, SPACING;
+
 		unsigned int index(int w, int d) {
 			return w + size * d;
-
 		}
-		//Number of vertices
+		//Number of vertices in chunk
 		const size_t size;
 		Mesh mesh;
 		BoundingBox boundingBox;
