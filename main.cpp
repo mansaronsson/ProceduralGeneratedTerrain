@@ -140,38 +140,13 @@ int main() {
         glm::mat4 camera1 = camera1Control.computeCameraViewMatrix();
         glm::mat4 modelM = glm::mat4(1.0f);
 
-        /*** Update terrain chunks ***/
-        chandler.updateChunks(camera1Control.getCameraPosition());
-
-        /*** Draw terrain chunks ***/
-        myShader.use();
-        myShader.setMat4("M", modelM);
-        toggleCamera ? myShader.setMat4("V", camera1) : myShader.setMat4("V", camera2);
-        toggleCamera ? myShader.setMat4("P", perspective) : myShader.setMat4("P", perspective2);
-        if (wireFrame) {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            chandler.draw();
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-        }
-        else {
-            chandler.draw();
-        }
-        /*** Draw bounding boxes around  ***/
-        boundingBoxShader.use();
-        boundingBoxShader.setMat4("M", modelM);
-        toggleCamera ? boundingBoxShader.setMat4("V", camera1) : boundingBoxShader.setMat4("V", camera2);
-        toggleCamera ? boundingBoxShader.setMat4("P", perspective) : boundingBoxShader.setMat4("P", perspective2);
-        if(drawbb)
-            chandler.drawBoundingBox();
-
         /*** Draw camera frustum ***/
         auto invproj = glm::inverse(perspective * camera1);
         cameraShader.use();
         cameraShader.setMat4("InvP", invproj);
         toggleCamera ? cameraShader.setMat4("V", camera1) : cameraShader.setMat4("V", camera2);
         camera1Mesh.draw(GL_LINE_STRIP);
-        
+
         /*** Compute camera frustum points in world coordinates ***/
         std::vector<glm::vec3> worldCamPoints;
         worldCamPoints.reserve(campoints.size());
@@ -189,6 +164,32 @@ int main() {
         else {
             chandler.cullTerrainChunk(planes);
         }
+
+        /*** Update terrain chunks ***/
+        chandler.updateChunks(camera1Control.getCameraPosition());
+
+        /*** Draw terrain chunks ***/
+        myShader.use();
+        myShader.setMat4("M", modelM);
+        toggleCamera ? myShader.setMat4("V", camera1) : myShader.setMat4("V", camera2);
+        toggleCamera ? myShader.setMat4("P", perspective) : myShader.setMat4("P", perspective2);
+        if (wireFrame) {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            chandler.draw();
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+        }
+        else {
+            chandler.draw();
+        }
+
+        /*** Draw bounding boxes around  ***/
+        boundingBoxShader.use();
+        boundingBoxShader.setMat4("M", modelM);
+        toggleCamera ? boundingBoxShader.setMat4("V", camera1) : boundingBoxShader.setMat4("V", camera2);
+        toggleCamera ? boundingBoxShader.setMat4("P", perspective) : boundingBoxShader.setMat4("P", perspective2);
+        if(drawbb)
+            chandler.drawBoundingBox();
 
         //if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
         //    //printmat4(invproj);
@@ -209,6 +210,7 @@ int main() {
     glfwTerminate();
 	return 0;
 }
+
 
 std::vector<CameraPlane> computeCameraPlanes(const std::vector<glm::vec3>& points) {
     //top plane

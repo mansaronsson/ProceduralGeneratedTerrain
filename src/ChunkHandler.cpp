@@ -1,25 +1,26 @@
 #include "..\header\ChunkHandler.h"
 #include <iostream>
 
-ChunkHandler::ChunkHandler(size_t _gridSize, size_t _nrVertices, float _spacing, float _yscale)
+ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, float _spacing, float _yscale)
 	: gridSize{ (_gridSize % 2 == 0 ? (_gridSize + 1) : _gridSize) }, nrVertices{ _nrVertices + 2 }, spacing{ _spacing }, yscale{ _yscale }, currentChunk{ nullptr }
 {
-	size_t size = nrVertices; //two extra rows / columns for the skirts
-	float width = (size  - 3 ) * spacing; //width of 1 chunk, -3 due to extra skirts
+	//unsigned int size = nrVertices; //two extra rows / columns for the skirts
+	float width = (nrVertices - 3 ) * spacing; //width of 1 chunk, -3 due to extra skirts
 
 	for (int row = 0; row < gridSize; ++row) {
 		float zpos = -width * (static_cast<float>(gridSize) / 2.0f) + row * width;
 		for (int col = 0; col < gridSize; ++col) {
 			float xpos = -width * (static_cast<float>(gridSize) / 2.0f) + col * width;
 
-			chunks.push_back(new Chunk{ nrVertices, xpos, zpos, spacing, yscale, 2.5f });
-			chunks.back()->id = index(col, row);
+			chunks.push_back(new Chunk{ nrVertices, xpos, zpos, spacing, index(col, row, gridSize) });
+			chunks.back()->bakeMeshes();
+
 		}
 	}
 	currentChunk = chunks[gridSize * gridSize / 2];
 }
  
-glm::vec3 ChunkHandler::Chunk::createPointWithNoise(float x, float z, float* minY, float* maxY ) const{
+glm::vec3 ChunkHandler::Chunk::createPointWithNoise(float x, float z, float* minY, float* maxY ) const {
 	/*** Apply noise to the height ie. y component using fbm ***/
 	int octaves = 6;
 	float noiseSum = 0.0f;
@@ -89,23 +90,23 @@ glm::vec3 ChunkHandler::Chunk::computeNormal(const std::vector<glm::vec3>& p,con
 	return normal;
 }
 
-ChunkHandler::Chunk::Chunk(size_t _size, float xpos, float zpos, float _spacing, float yscale, float frequency) : size{ _size } {
-	XPOS = xpos;
-	ZPOS = zpos;
-	SPACING = _spacing;
-	std::vector<Vertex> vertices;
-	std::vector<unsigned int> indices;
-	vertices.reserve(size * size);
-	indices.reserve(6 * (size - 2) * (size - 2) + 3 * size * 4 - 18); // se notes in lecture 6 
+void ChunkHandler::Chunk::bakeMeshes() {
+	mesh = Mesh{ vertices, indices };
+	boundingBox = BoundingBox{ points };
+}
+
+ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, float xpos, float zpos, float _spacing, unsigned int _id) : nrVertices{ _nrVertices }, XPOS{ xpos }, ZPOS{ zpos }, SPACING{ _spacing }, id{ _id } {
+	vertices.reserve(nrVertices * nrVertices);
+	indices.reserve(6 * (nrVertices - 2) * (nrVertices - 2) + 3 * nrVertices * 4 - 18); // se notes in lecture 6 
 
 	//Need min and max height of this chunk to compute the bounding box
 	float minY = std::numeric_limits<float>::max();
 	float maxY = std::numeric_limits<float>::min();
 
 	/*** Compute vertex positions and indices ***/
-	for (int depth = 0; depth < size; ++depth)
+	for (int depth = 0; depth < nrVertices; ++depth)
 	{
-		for (int width = 0; width < size; ++width) {
+		for (int width = 0; width < nrVertices; ++width) {
 			float x = xpos + width * _spacing;
 			float z = zpos + depth * _spacing;
 
@@ -113,17 +114,17 @@ ChunkHandler::Chunk::Chunk(size_t _size, float xpos, float zpos, float _spacing,
 			if (depth == 0) {
 				z = zpos + (depth + 1) * _spacing;
 			}
-			if (depth == size - 1) {
+			if (depth == nrVertices - 1) {
 				z = zpos + (depth - 1) * _spacing;
 			}
 			if (width == 0) {
 				x = xpos + (width + 1) * _spacing;
 			}
-			if (width == size - 1) {
+			if (width == nrVertices - 1) {
 				x = xpos + (width - 1) * _spacing;
 			}
 
-			if (depth == 0 || depth == size - 1 || width == 0 || width == size - 1) //edges of grid ie. skirts
+			if (depth == 0 || depth == nrVertices - 1 || width == 0 || width == nrVertices - 1) //edges of grid ie. skirts
 			{
 				float skirtDepth = -3.0f;
 				glm::vec3 pos{ x, skirtDepth, z };
@@ -136,7 +137,7 @@ ChunkHandler::Chunk::Chunk(size_t _size, float xpos, float zpos, float _spacing,
 			}
 
 			//add indices to create triangle list
-			if (width < size - 1 && depth < size - 1) {
+			if (width < nrVertices - 1 && depth < nrVertices - 1) {
 				unsigned int i1, i2, i3, i4;
 				i1 = index(width, depth); //current
 				i2 = index(width, depth + 1); //bottom
@@ -166,7 +167,7 @@ ChunkHandler::Chunk::Chunk(size_t _size, float xpos, float zpos, float _spacing,
 	/*** Compute edge & skirt normals ***/
 	//Top row, visit each column
 	int depth = 1;
-	for (int width = 1; width < size - 1; ++width) {
+	for (int width = 1; width < nrVertices - 1; ++width) {
 		glm::vec3 v0 = vertices[index(width, depth)].position; //current vertex
 		glm::vec3 ne, n, nw, w, sw, s, se, e;
 		//Find all surrounding vertices 
@@ -182,7 +183,7 @@ ChunkHandler::Chunk::Chunk(size_t _size, float xpos, float zpos, float _spacing,
 			w = vertices[index(width - 1, depth)].position;
 			sw = vertices[index(width - 1, depth + 1)].position;
 		}
-		if (width == size - 2) { //top rightmost vertex 
+		if (width == nrVertices - 2) { //top rightmost vertex 
 			e = createFakeVertex(width + 1, depth);
 			se = createFakeVertex(width + 1, depth + 1);
 		}
@@ -199,15 +200,15 @@ ChunkHandler::Chunk::Chunk(size_t _size, float xpos, float zpos, float _spacing,
 			vertices[index(width - 1, depth - 1)].normal = normal; //nw skirt
 			vertices[index(width - 1, depth)].normal = normal; //w skirt
 		}
-		if (width == size -2) {
+		if (width == nrVertices -2) {
 			vertices[index(width + 1, depth - 1)].normal = normal; //ne skirt
 			vertices[index(width - 1, depth)].normal = normal; //e skirt
 		}
 	} //End of top row
 
 	//Bottom row visit each column
-	depth = size - 2;
-	for (int width = 1; width < size - 1; ++width) {
+	depth = nrVertices - 2;
+	for (int width = 1; width < nrVertices - 1; ++width) {
 		glm::vec3 v0 = vertices[index(width, depth)].position; //current vertex
 		glm::vec3 ne, n, nw, w, sw, s, se, e;
 		//Find all surrounding vertices		
@@ -223,7 +224,7 @@ ChunkHandler::Chunk::Chunk(size_t _size, float xpos, float zpos, float _spacing,
 			w = vertices[index(width - 1, depth)].position;
 			nw = vertices[index(width - 1, depth - 1)].position;
 		}
-		if (width == size - 2) { //bottom rightmost vertex 
+		if (width == nrVertices - 2) { //bottom rightmost vertex 
 			e = createFakeVertex(width + 1, depth);
 			ne = createFakeVertex(width + 1, depth - 1);
 		}
@@ -231,6 +232,7 @@ ChunkHandler::Chunk::Chunk(size_t _size, float xpos, float zpos, float _spacing,
 			e = vertices[index(width + 1, depth)].position;
 			ne = vertices[index(width + 1, depth - 1)].position;
 		}
+
 		//Compute normal
 		std::vector<glm::vec3> neighbors{ ne, n, nw, w, sw, s, se, e };
 		glm::vec3 normal = computeNormal(neighbors, v0);
@@ -240,7 +242,7 @@ ChunkHandler::Chunk::Chunk(size_t _size, float xpos, float zpos, float _spacing,
 			vertices[index(width - 1, depth + 1)].normal = normal; //sw skirt
 			vertices[index(width - 1, depth)].normal = normal; //w skirt
 		}
-		if (width == size - 2) {
+		if (width == nrVertices - 2) {
 			vertices[index(width + 1, depth + 1)].normal = normal; //se skirt
 			vertices[index(width - 1, depth)].normal = normal; //e skirt
 		}
@@ -248,7 +250,7 @@ ChunkHandler::Chunk::Chunk(size_t _size, float xpos, float zpos, float _spacing,
 
 	//Left column visit every row except top and bottom
 	int width = 1;
-	for (int depth = 2; depth < size - 2; ++depth) { //+2 - 2 range skips top and bottom row since they are already computed
+	for (int depth = 2; depth < nrVertices - 2; ++depth) { //+2 - 2 range skips top and bottom row since they are already computed
 		glm::vec3 v0 = vertices[index(width, depth)].position; //current vertex
 		glm::vec3 ne, n, nw, w, sw, s, se, e;
 		//Find all surrounding vertices
@@ -269,8 +271,8 @@ ChunkHandler::Chunk::Chunk(size_t _size, float xpos, float zpos, float _spacing,
 	}//End of left row
 
 	//Right column visit every row except top and bottom
-	width = size - 2;
-	for (int depth = 2; depth < size - 2; ++depth) { //+2 - 2 range skips top and bottom row since they are already computed
+	width = nrVertices - 2;
+	for (int depth = 2; depth < nrVertices - 2; ++depth) { //+2 - 2 range skips top and bottom row since they are already computed
 		glm::vec3 v0 = vertices[index(width, depth)].position; //current vertex
 		glm::vec3 ne, n, nw, w, sw, s, se, e;
 		//Find all vertices
@@ -291,9 +293,9 @@ ChunkHandler::Chunk::Chunk(size_t _size, float xpos, float zpos, float _spacing,
 	}//End of right column
 
 	//Compute normal by weighting all connected triangles ignoring the first row/column + skirts
-	for (int depth = 2; depth < size - 2; ++depth)
+	for (int depth = 2; depth < nrVertices - 2; ++depth)
 	{
-		for (int width = 2; width < size -2; ++width) {
+		for (int width = 2; width < nrVertices -2; ++width) {
 			glm::vec3 v0 = vertices[index(width, depth)].position; //current
 			//Retrieve neighboring points
 			glm::vec3 ne = vertices[index(width + 1, depth - 1)].position;
@@ -312,64 +314,47 @@ ChunkHandler::Chunk::Chunk(size_t _size, float xpos, float zpos, float _spacing,
 		}
 	}
 
-	mesh = Mesh{ vertices, indices };
+	//mesh = Mesh{ vertices, indices }; 
 
 	//create boundingbox ignoring the extra row and column added by the skirts
 	//max x and z already had size - 1 before skirts were added 
 	float minX = xpos + _spacing; 
-	float maxX = xpos + (size - 2) * _spacing;
+	float maxX = xpos + (nrVertices - 2) * _spacing;
 	float minZ = zpos + _spacing;
-	float maxZ = zpos + (size - 2) * _spacing;
+	float maxZ = zpos + (nrVertices - 2) * _spacing;
 
 	//Important theese are given in correct order -> see BoundingBox.h ctor
-	// glm::vec3 p1{ minX, maxY, minZ }, p2{ maxX, maxY, minZ }, p3{ maxX, maxY, maxZ }, p4{ minX, maxY, maxZ },
-	// 	p5{ minX, minY, minZ }, p6{ maxX, minY, minZ }, p7{ maxX, minY, maxZ }, p8{ minX, minY, maxZ };
-
-	std::vector<glm::vec3> points{ { minX, maxY, minZ }, { maxX, maxY, minZ }, { maxX, maxY, maxZ }, { minX, maxY, maxZ },
+	points = std::vector<glm::vec3>{ { minX, maxY, minZ }, { maxX, maxY, minZ }, { maxX, maxY, maxZ }, { minX, maxY, maxZ },
 				{ minX, minY, minZ }, { maxX, minY, minZ }, { maxX, minY, maxZ }, { minX, minY, maxZ } };
-	//
-	//std::cout << glm::to_string(p1) << " " << glm::to_string(p2) << " " << glm::to_string(p3) << '\n'
-	//	<< glm::to_string(p4) << " " << glm::to_string(p5) << " " << glm::to_string(p6) << '\n'
-	//	<< glm::to_string(p7) << " " << glm::to_string(p8) << '\n' << '\n';
 
-	// boundingBox = BoundingBox{ p1, p2, p3, p4, p5, p6, p7, p8 };
-	boundingBox = BoundingBox{ points };
+	//boundingBox = BoundingBox{ points };
 }
 
-ChunkHandler::Chunk::Chunk(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices, const std::vector<glm::vec3>& bBox, size_t _size)
-	: size{_size}
+chunkChecker ChunkHandler::Chunk::checkMovement(const glm::vec3& pos)
 {
-
-	mesh = Mesh{ vertices, indices };
-	boundingBox = BoundingBox{ bBox };
-}
-
-chunkChecker ChunkHandler::Chunk::isInside(const glm::vec3& pos)
-{
-	//std::cout << glm::to_string(pos) << "\n";
-	chunkChecker ch = inside;
+	chunkChecker cc = inside;
 	auto v1 = mesh.vertices[0].position; //first vertex in chunk
 	auto v2 = mesh.vertices[mesh.vertices.size() - 1].position; // last vertex in chunk
 
 	//Check if position is within chunk borders spanned by v1 and v2 in the x,z plane
 	if (pos.z < v1.z) {
-		ch = up;
-		return ch;
+		cc = up;
+		return cc;
 	}
 	if (pos.z > v2.z) {
-		ch = down;
-		return ch;
+		cc = down;
+		return cc;
 	}
 	if (pos.x < v1.x) {
-		ch = left;
-		return ch;
+		cc = left;
+		return cc;
 	}
 	if (pos.x > v2.x) {
-		ch = right;
-		return ch;
+		cc = right;
+		return cc;
 	}
 	//Position is inside borders
-	return ch;
+	return cc;
 }
 
 std::pair<glm::vec3, glm::vec3> ChunkHandler::Chunk::computePN(const glm::vec3& n) const
@@ -400,178 +385,34 @@ std::pair<glm::vec3, glm::vec3> ChunkHandler::Chunk::computePN(const glm::vec3& 
 	}
 }
 
-// void ChunkHandler::checkChunk(const glm::vec3& camPos)
 chunkChecker ChunkHandler::checkChunk(const glm::vec3& camPos)
 {
-	return currentChunk->isInside(camPos);
+	return currentChunk->checkMovement(camPos);
 }
 
-void ChunkHandler::generateChunk(chunkChecker cc, size_t id)
+/// <summary>
+/// Constructs a new chunk and adds it together with the movement (chunkChecker) that triggered the generation to the render queue. The chunk mesh is not initiated so it can be multi-threaded.
+/// </summary>
+/// <param name="newPos"></param>
+/// <param name="nrVeritices"></param>
+/// <param name="_spacing"></param>
+/// <param name="id"></param>
+/// <param name="inside"></param>
+void ChunkHandler::generateChunk(const std::pair<float, float>& newPos, unsigned int nrVeritices, float _spacing, unsigned int id, chunkChecker cc)
 {
-	const float frequency{ 2.5f };	// Should be changed in later versions
-	
-	glm::vec3 prevPos = chunks[id]->getPostition();
-	float posX;
-	float posZ;
-
-	switch (cc) {
-	case chunkChecker::up:
-		posX = prevPos.x;
-		posZ = prevPos.z - (nrVertices - 1) * spacing;
-		break;
-	case chunkChecker::down:
-		posX = prevPos.x;
-		posZ = prevPos.z + (nrVertices - 1) * spacing;
-		break;
-	case chunkChecker::left:
-		posX = prevPos.x - (nrVertices - 1) * spacing;
-		posZ = prevPos.z;
-		break;
-	case chunkChecker::right:
-		posX = prevPos.x + (nrVertices - 1) * spacing;
-		posZ = prevPos.z;
-		break;
-	default:
-		break;
-	}
-
-	std::vector<Vertex> vertices;
-	std::vector<unsigned int> indices;
-	vertices.reserve(nrVertices * nrVertices);
-	indices.reserve(6 * (nrVertices - 2) * (nrVertices - 2) + 3 * nrVertices * 4 - 18); // se notes in lecture 6 
-
-	float minY = std::numeric_limits<float>::max();
-	float maxY = std::numeric_limits<float>::min();
-
-	for (int depth = 0; depth < nrVertices; ++depth)
-	{
-		for (int width = 0; width < nrVertices; ++width) {
-			float x = posX + width * spacing;
-			float z = posZ + depth * spacing;
-			float noiseY = glm::perlin(glm::vec3(x / frequency, z / frequency, 0.1f)); // last component seed 
-			noiseY *= yscale;
-
-
-			vertices.push_back({ { x, noiseY, z } });
-
-			minY = minY > noiseY ? noiseY : minY;
-			maxY = maxY < noiseY ? noiseY : maxY;
-
-
-			unsigned int i1, i2, i3, i4;
-			if (width < nrVertices - 1 && depth < nrVertices - 1) {
-				i1 = chunkIndex(width, depth); //current
-				i2 = chunkIndex(width, depth + 1); //bottom
-				i3 = chunkIndex(width + 1, depth + 1); //bottom right
-				i4 = chunkIndex(width + 1, depth); // right 
-
-				/*
-					i1--<--i4
-						|\    |
-						v \   ^
-						|  \  |
-						|   \ |
-					i2-->--i3
-				*/
-
-				//left triangle diagonal from top left to bottom right 
-				indices.push_back(i1);
-				indices.push_back(i2);
-				indices.push_back(i3);
-				//right triangle
-				indices.push_back(i1);
-				indices.push_back(i3);
-				indices.push_back(i4);
-			}
-		}
-	}
-
-	//compute normal by weighting all connected triangles
-	for (int depth = 0; depth < nrVertices; ++depth)
-	{
-		for (int width = 0; width < nrVertices; ++width) {
-
-			//neighbor flags 
-			bool up, left, right, down;
-			up = depth - 1 >= 0;
-			down = depth + 1 < nrVertices;
-			left = width - 1 >= 0;
-			right = width + 1 < nrVertices;
-
-			int counter{ 0 };
-			glm::vec3 normal{ 0.0f,0.0f,0.0f };
-
-			glm::vec3 v0 = vertices[chunkIndex(width, depth)].position; //current
-			//t1 & t6
-			if (up && left)
-			{
-				glm::vec3 v1 = vertices[chunkIndex(width - 1, depth - 1)].position; //nw
-				glm::vec3 v2 = vertices[chunkIndex(width - 1, depth)].position; //w
-				glm::vec3 v3 = vertices[chunkIndex(width, depth - 1)].position; //n
-				glm::vec3 e1 = v1 - v0;
-				glm::vec3 e2 = v2 - v0;
-				glm::vec3 e3 = v3 - v0;
-				normal += glm::cross(e1, e2);
-				normal += glm::cross(e3, e1);
-				counter += 2;
-
-			}
-			//t2
-			if (left && down) {
-				glm::vec3 v1 = vertices[chunkIndex(width - 1, depth)].position; //w
-				glm::vec3 v2 = vertices[chunkIndex(width, depth + 1)].position; //s
-				glm::vec3 e1 = v1 - v0;
-				glm::vec3 e2 = v2 - v0;
-				normal += glm::cross(e1, e2);
-				++counter;
-			}
-			//t3 & t4
-			if (down && right) {
-				glm::vec3 v1 = vertices[chunkIndex(width, depth + 1)].position; //s
-				glm::vec3 v2 = vertices[chunkIndex(width + 1, depth + 1)].position; //se
-				glm::vec3 v3 = vertices[chunkIndex(width + 1, depth)].position; //e
-				glm::vec3 e1 = v1 - v0;
-				glm::vec3 e2 = v2 - v0;
-				glm::vec3 e3 = v3 - v0;
-				normal += glm::cross(e1, e2);
-				normal += glm::cross(e3, e1);
-				counter += 2;
-			}
-			//t5
-			if (up && right) {
-				glm::vec3 v1 = vertices[chunkIndex(width + 1, depth)].position; //e
-				glm::vec3 v2 = vertices[chunkIndex(width + 1, depth - 1)].position; //ne
-				glm::vec3 e1 = v1 - v0;
-				glm::vec3 e2 = v2 - v0;
-				normal += glm::cross(e1, e2);
-				++counter;
-			}
-
-			normal /= counter;
-			normal = glm::normalize(normal);
-			vertices[chunkIndex(width, depth)].normal = normal;
-		}
-	}
-
-	//create boundingbox
-	float minX = posX;
-	float maxX = posX + (nrVertices - 1) * spacing;
-	float minZ = posZ;
-	float maxZ = posZ + (nrVertices - 1) * spacing;
-
-	std::vector<glm::vec3> bBox{ { minX, maxY, minZ }, { maxX, maxY, minZ }, { maxX, maxY, maxZ }, { minX, maxY, maxZ },
-		{ minX, minY, minZ }, { maxX, minY, minZ }, { maxX, minY, maxZ }, { minX, minY, maxZ } };
-
-	renderQ.push({vertices, indices, bBox, cc, id});
+	Chunk* chunk = new Chunk{ nrVertices, newPos.first, newPos.second, _spacing, id };
+	renderQ.push({ chunk, cc });
 }
 
 
-// TODO: Fix the memory leaks this function creates
+/// <summary>
+/// Updates which chunks that are rendered based on camera position. New chunks are genereted by multi-threading.
+/// </summary>
+/// <param name="camPos"></param>
 void ChunkHandler::updateChunks(const glm::vec3& camPos)
 {
-	chunkChecker cc{ this->checkChunk(camPos) };
-
-	std::vector<size_t> ids;
+	// Checks movement and adds it to the move queue if outside the current chunk. Updates current chunk according to the camera position.
+	chunkChecker cc{ this->checkChunk(camPos) };	// Enum that hold if and which direction the camera moved 
 	switch (cc)
 	{
 	case chunkChecker::inside:
@@ -602,72 +443,84 @@ void ChunkHandler::updateChunks(const glm::vec3& camPos)
 		break;
 	}
 
-	// MoveQ evaluator
+	// MoveQ evaluator, only adds chunks to the render queue if all chunks from the previous move have been generated.
 	if (!moveQ.empty() && renderCounter == gridSize)
 	{
+		std::lock_guard<std::mutex> lock(mu);	// Thread safe
+
 		renderCounter = 0;
-		std::vector<size_t> ids;
+		std::vector<unsigned int> ids;
 
 		chunkChecker cc = moveQ.front();
 		moveQ.pop();
-
+		
+		int row, col;
 		switch (cc)
 		{
 		case chunkChecker::up:
-			for (size_t id = 0; id < gridSize; ++id) {
-				ids.push_back(id);
+			row = 0;
+			for (col = 0; col < gridSize; ++col) {
+				ids.push_back(index(col, row, gridSize));
 			}
 			break;
 
 		case chunkChecker::down:
-			for (size_t id = gridSize * gridSize; id > gridSize * (gridSize - 1); --id) {
-				ids.push_back(id - 1);
+			row = gridSize - 1;
+			for(col = 0; col < gridSize; ++col) {
+				ids.push_back(index(col, row, gridSize));
 			}
 			break;
 
 		case chunkChecker::left:
-			for (size_t id = 0; id < gridSize; ++id) {
-				ids.push_back(id * gridSize);
+			col = 0;
+			for(row = 0; row < gridSize; ++row) {
+				ids.push_back(index(col, row, gridSize));
 			}
 			break;
 
 		case chunkChecker::right:
-			for (size_t id = 0; id < gridSize; ++id) {
-				ids.push_back(id * gridSize + gridSize - 1);
+			col = gridSize - 1;
+			for(row = 0; row < gridSize; ++row) {
+				ids.push_back(index(col, row, gridSize));
 			}
 			break;
 		}
 
-		// Multithreading
+		// Multi-threading
 		for (auto id : ids)
 		{
-			std::thread t(&ChunkHandler::generateChunk, this, cc, id);	
+			auto newPos = newChunkPosition(cc, id);
+			std::thread t(&ChunkHandler::generateChunk, this, newPos, nrVertices, spacing, id, cc);
 			t.detach();
 		}
 	}
 
+	// Swaps chunks in the chunks grid when a new chunk has been rendered. Updates all chunk ids to match it's position in the chunks grid.
+	while (!renderQ.empty()) 
+	{
+		std::lock_guard<std::mutex> lock(mu);	// Thread safe
 
-	while (!renderQ.empty()) {
-
-		// 0: Vertex, 1: unsigned int, 2: vec3, 3: chunkChecker, 4: size_t
-		chunkInfo ci = renderQ.front();
+		chunkInfo ci = renderQ.front();	// <Chunk*, chunkChecker>
 		renderQ.pop();
 		++renderCounter;
+		
+		Chunk* newChunk = std::get<Chunk*>(ci);
+		newChunk->bakeMeshes();
 
-		size_t id = std::get<size_t>(ci);
-		Chunk* newChunk = new Chunk{ std::get<0>(ci), std::get<1>(ci), std::get<2>(ci), nrVertices };
-		newChunk->id = id;
 		Chunk* temp;
+		unsigned int id = newChunk->id;
 
+		int row, col;
 		switch (std::get<chunkChecker>(ci))
 		{
 		case chunkChecker::up:
 			temp = chunks[id + gridSize * (gridSize - 1)];	// Chunk to be deleted
 
-			for (size_t i = 1; i < gridSize; ++i) {
+			col = id;
+			for (row = gridSize - 1; row > 0; --row) {
 
-				chunks[id + gridSize * (gridSize - i)] = chunks[id + gridSize * (gridSize - i - 1)];
-				chunks[id + gridSize * (gridSize - i)]->id += gridSize;
+				chunks[index(col, row, gridSize)] = chunks[index(col, row - 1, gridSize)];
+				chunks[index(col, row, gridSize)]->id += gridSize;
 			}
 
 			chunks[id] = newChunk;
@@ -677,12 +530,13 @@ void ChunkHandler::updateChunks(const glm::vec3& camPos)
 			break;
 
 		case chunkChecker::down:
-			temp = chunks[id - gridSize * (gridSize - 1)];	// Chunk to be deleted
+			col = id % gridSize;
+			temp = chunks[col];	// Chunk to be deleted
 
-			for (size_t i = 1; i < gridSize; ++i) {
+			for (row = 0; row < gridSize - 1; ++row) {
 
-				chunks[id - gridSize * (gridSize - i)] = chunks[id - gridSize * (gridSize - i - 1)];
-				chunks[id - gridSize * (gridSize - i)]->id -= gridSize;
+				chunks[index(col, row, gridSize)] = chunks[index(col, row + 1, gridSize)];
+				chunks[index(col, row, gridSize)]->id -= gridSize;
 			}
 
 			chunks[id] = newChunk;
@@ -694,10 +548,11 @@ void ChunkHandler::updateChunks(const glm::vec3& camPos)
 		case chunkChecker::left:
 			temp = chunks[id + gridSize - 1];	// Chunk to be deleted
 
-			for (size_t i = 1; i < gridSize; ++i) {
+			row = id / gridSize;
+			for (col = gridSize - 1; col > 0; --col) {
 
-				chunks[id + gridSize - i] = chunks[id + gridSize - i - 1];
-				++chunks[id + gridSize - i]->id;
+				chunks[index(col, row, gridSize)] = chunks[index(col - 1, row, gridSize)];
+				++chunks[index(col, row, gridSize)]->id;
 			}
 
 			chunks[id] = newChunk;
@@ -709,10 +564,11 @@ void ChunkHandler::updateChunks(const glm::vec3& camPos)
 		case chunkChecker::right:
 			temp = chunks[id - gridSize + 1];	// Chunk to be deleted
 
-			for (size_t i = 1; i < gridSize; ++i) {
+			row = id / gridSize;
+			for (col = 0; col < gridSize - 1; ++col) {
 
-				chunks[id - gridSize + i] = chunks[id - gridSize + i + 1];
-				--chunks[id - gridSize + i]->id;
+				chunks[index(col, row, gridSize)] = chunks[index(col + 1, row, gridSize)];
+				--chunks[index(col, row, gridSize)]->id;
 			}
 
 			chunks[id] = newChunk;
@@ -724,8 +580,6 @@ void ChunkHandler::updateChunks(const glm::vec3& camPos)
 		default:
 			break;
 		}
-
-
 	}
 }
 
@@ -758,4 +612,33 @@ void ChunkHandler::cullTerrainChunk(const std::vector<CameraPlane>& cameraPlanes
 		//bounding box is inside -> draw object
 		chunk->drawChunk = !outside;
 	}
+}
+
+std::pair<float, float> ChunkHandler::newChunkPosition(chunkChecker cc, unsigned int gridId) const
+{
+	glm::vec3 prevPos = chunks[gridId]->getPostition();
+	std::pair<float, float> newPos;
+
+	switch (cc) {
+	case chunkChecker::up:
+		newPos.first = prevPos.x - spacing;
+		newPos.second = prevPos.z - (nrVertices - 2) * spacing;
+		break;
+	case chunkChecker::down:
+		newPos.first = prevPos.x - spacing;
+		newPos.second = prevPos.z + (nrVertices - 4) * spacing;
+		break;
+	case chunkChecker::left:
+		newPos.first = prevPos.x - (nrVertices - 2) * spacing;
+		newPos.second = prevPos.z - spacing;
+		break;
+	case chunkChecker::right:
+		newPos.first = prevPos.x + (nrVertices - 4) * spacing;
+		newPos.second = prevPos.z - spacing;
+		break;
+	default:
+		break;
+	}
+
+	return newPos;
 }

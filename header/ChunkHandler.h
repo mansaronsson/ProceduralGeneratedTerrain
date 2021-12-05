@@ -8,12 +8,11 @@
 #include "CameraPlane.h"
 #include <queue>
 #include <thread>
+#include <mutex>
 
 enum chunkChecker {
 	inside, up, down, left, right
 };
-
-using chunkInfo = std::tuple<std::vector<Vertex>, std::vector<unsigned int>, std::vector<glm::vec3>, chunkChecker, size_t>;
 
 class ChunkHandler {
 public:
@@ -24,7 +23,7 @@ public:
 	/// <param name="nrVertices">number of vertecies per chunk excluding skirts</param>
 	/// <param name="spacing">distance between vertices</param>
 	/// <param name="yscale">how much to scale in the y direction</param>
-	ChunkHandler(size_t _gridSize, size_t _nrVertices, float _spacing, float _yscale);
+	ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, float _spacing, float _yscale);
 
 
 	void cullTerrain(bool cull) {
@@ -45,13 +44,7 @@ public:
 			chunk->drawBoundingBox();
 		}
 	}
-	/// <summary>
-	/// Check if the camera is inside a chunk on x,z plane 
-	/// </summary>
-	/// <param name="camPos"></param>
-	chunkChecker checkChunk(const glm::vec3& camPos);
 
-	void generateChunk(chunkChecker cc, size_t id);
 
 	/// <summary>
 	/// Update chunk the camera is currently over ie. get center chunk
@@ -76,10 +69,8 @@ private:
 		/// <param name="xpos">start position x</param>
 		/// <param name="zpos">start position z</param>
 		/// <param name="_spacing">how much space between each vertex</param>
-		/// <param name="yscale"></param>
-		/// <param name="frequency"></param>
-		Chunk(size_t _size, float xpos, float zpos, float _spacing, float yscale, float frequency);
-		Chunk(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices, const std::vector<glm::vec3>& bBox, size_t _size);
+		Chunk(unsigned int _size, float xpos, float zpos, float _spacing, unsigned int _id);
+		//Chunk(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices, const std::vector<glm::vec3>& bBox, size_t _size);
 
 		glm::vec3 getPostition() {
 			return mesh.vertices[0].position;
@@ -93,6 +84,9 @@ private:
 			if (drawChunk)
 				boundingBox.draw();
 		}
+
+		void bakeMeshes();
+
 		/// <summary>
 		/// Create noisy point at position x,z computes height y
 		/// TODO: make noise dependent on variables
@@ -116,7 +110,7 @@ private:
 		glm::vec3 computeNormal(const std::vector<glm::vec3>& p,const glm::vec3& v0) const;
 
 
-		chunkChecker isInside(const glm::vec3& pos);
+		chunkChecker checkMovement(const glm::vec3& pos);
 
 		/// <summary>
 		/// returns the p and n-vertex of the bounding box computed from the normal n of the plane
@@ -127,32 +121,44 @@ private:
 		std::pair<glm::vec3, glm::vec3> computePN(const glm::vec3& n) const;
 
 		bool drawChunk = true;
-		size_t id;
+		unsigned int id;
 
 	private:
 		//Helper variables, start pos x & z and spacing between vertices
 		float XPOS, ZPOS, SPACING;
 
+		std::vector<Vertex> vertices;
+		std::vector<unsigned int> indices;
+		std::vector<glm::vec3> points;
+
 		unsigned int index(int w, int d) {
-			return w + size * d;
+			return w + nrVertices * d;
 		}
 		//Number of vertices in chunk
-		const size_t size;
+		const unsigned int nrVertices;
 		Mesh mesh;
 		BoundingBox boundingBox;
 	};
 	/*End of chunk class*/
 
-	unsigned int index(int col, int row) {
-		return col + gridSize * row;
+	unsigned int index(int col, int row, int size) {
+		return col + size * row;
 	}
 
-	unsigned int chunkIndex(int w, int d) {
-		return w + nrVertices * d;
-	}
+	void generateChunk(const std::pair<float, float>& newPos, unsigned int nrVeritices, float spacing, unsigned int id, chunkChecker cc = chunkChecker::inside);
 
-	const size_t gridSize;
-	const size_t nrVertices;
+	/// <summary>
+	/// Check if the camera is inside a chunk on x,z plane 
+	/// </summary>
+	/// <param name="camPos"></param>
+	chunkChecker checkChunk(const glm::vec3& camPos);
+
+	std::pair<float, float> newChunkPosition(chunkChecker cc, unsigned int gridId) const;
+
+	std::mutex mu;
+
+	const unsigned int gridSize;
+	const unsigned int nrVertices;
 	const float spacing;
 	const float yscale;
 
@@ -161,6 +167,7 @@ private:
 	Chunk* currentChunk;
 	std::vector<Chunk*> chunks;
 
+	using chunkInfo = std::tuple<Chunk*, chunkChecker>;
 	std::queue<chunkInfo> renderQ;
 	std::queue<chunkChecker> moveQ;
 };
