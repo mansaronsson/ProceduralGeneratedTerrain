@@ -35,7 +35,7 @@ public:
 	}
 
 	// glm::vec3 p1, p2, p3, p4, p5, p6, p7, p8;
-	glm::vec3 getPoint(unsigned int nr) {
+	glm::vec3 getPoint(unsigned int nr) const {
 		return boundingMesh.vertices[nr].position;
 	}
 
