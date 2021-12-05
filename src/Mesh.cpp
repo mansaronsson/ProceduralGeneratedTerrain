@@ -1,4 +1,4 @@
-#include "../header/Model.h"
+#include "../header/Mesh.h"
 
 Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices)
 {

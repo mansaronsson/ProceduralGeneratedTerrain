@@ -1,6 +1,6 @@
 #pragma once
 #include <vector>
-#include "Model.h"
+#include "Mesh.h"
 #include <glm/gtc/noise.hpp>
 #include "BoundingBox.h"
 #include <glm/gtx/string_cast.hpp>

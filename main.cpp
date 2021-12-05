@@ -10,7 +10,7 @@
 #include <iostream>
 
 #include "header/Shader.h"
-#include "header/Model.h"
+#include "header/Mesh.h"
 #include "header/CameraControl.h"
 #include "header/ChunkHandler.h"
 #include "header/CameraPlane.h"
