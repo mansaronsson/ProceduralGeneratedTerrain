@@ -1,16 +1,16 @@
-
-#include <iostream>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include <glm/gtc/noise.hpp>
 #include <glad/glad.h> //must be included before glfw 
 #include <GLFW/glfw3.h>
-#include "header/Shader.h"
+
 #define _USE_MATH_DEFINES
 #include <math.h>
-#include "header/Model.h"
+#include <iostream>
 
+#include "header/Shader.h"
+#include "header/Model.h"
 #include "header/CameraControl.h"
 #include "header/ChunkHandler.h"
 #include "header/CameraPlane.h"
@@ -30,6 +30,8 @@ void updateCamera2();
 void printmat4(const glm::mat4& mat);
 
 //settings
+int constexpr gridSize{ 5 };
+
 const unsigned int SCREEN_WIDTH = 800, SCREEN_HEIGHT = 600;
 
 glm::mat4 camera2 = glm::mat4(1.0f);
@@ -100,7 +102,7 @@ int main() {
 
     Mesh camera1Mesh{ campoints, camIndices };
 
-    ChunkHandler chandler{7, 50, 0.1f , 1.8f };   // (gridSize, nrVertices, spacing, yScale)
+    ChunkHandler chandler{gridSize, 50, 0.1f , 1.8f };   // (gridSize, nrVertices, spacing, yScale)
 
     //OpenGL render Settings
     glEnable(GL_DEPTH_TEST);
@@ -138,8 +140,8 @@ int main() {
         glm::mat4 camera1 = camera1Control.computeCameraViewMatrix();
         glm::mat4 modelM = glm::mat4(1.0f);
 
-        /*** Update terrain chiunks ***/
-        chandler.checkChunk(camera1Control.getCameraPosition());
+        /*** Update terrain chunks ***/
+        chandler.updateChunks(camera1Control.getCameraPosition());
 
         /*** Draw terrain chunks ***/
         myShader.use();

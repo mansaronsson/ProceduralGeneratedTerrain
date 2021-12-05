@@ -6,10 +6,14 @@
 #include <glm/gtx/string_cast.hpp>
 #include <iostream>
 #include "CameraPlane.h"
+#include <queue>
+#include <thread>
 
 enum chunkChecker {
 	inside, up, down, left, right
 };
+
+using chunkInfo = std::tuple<std::vector<Vertex>, std::vector<unsigned int>, std::vector<glm::vec3>, chunkChecker, size_t>;
 
 class ChunkHandler {
 public:
@@ -34,7 +38,6 @@ public:
 		{
 			chunk->draw();
 		}
-
 	}
 
 	void drawBoundingBox() {
@@ -46,13 +49,15 @@ public:
 	/// Check if the camera is inside a chunk on x,z plane 
 	/// </summary>
 	/// <param name="camPos"></param>
-	void checkChunk(const glm::vec3& camPos);
+	chunkChecker checkChunk(const glm::vec3& camPos);
+
+	void generateChunk(chunkChecker cc, size_t id);
 
 	/// <summary>
 	/// Update chunk the camera is currently over ie. get center chunk
 	/// </summary>
 	/// <param name="ch">what chunk direction did we move into</param>
-	void updateCurrentChunk(chunkChecker ch);
+	void updateChunks(const glm::vec3& camPos);
 
 	/// <summary>
 	/// Evaluate if a chunk is within the camera frustum
@@ -74,6 +79,7 @@ private:
 		/// <param name="yscale"></param>
 		/// <param name="frequency"></param>
 		Chunk(size_t _size, float xpos, float zpos, float _spacing, float yscale, float frequency);
+		Chunk(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices, const std::vector<glm::vec3>& bBox, size_t _size);
 
 		glm::vec3 getPostition() {
 			return mesh.vertices[0].position;
@@ -121,6 +127,7 @@ private:
 		std::pair<glm::vec3, glm::vec3> computePN(const glm::vec3& n) const;
 
 		bool drawChunk = true;
+		size_t id;
 
 	private:
 		//Helper variables, start pos x & z and spacing between vertices
@@ -140,11 +147,20 @@ private:
 		return col + gridSize * row;
 	}
 
+	unsigned int chunkIndex(int w, int d) {
+		return w + nrVertices * d;
+	}
+
 	const size_t gridSize;
 	const size_t nrVertices;
 	const float spacing;
 	const float yscale;
 
-	std::vector<Chunk*> chunks;
+	int renderCounter{ static_cast<int>(gridSize) };
+
 	Chunk* currentChunk;
+	std::vector<Chunk*> chunks;
+
+	std::queue<chunkInfo> renderQ;
+	std::queue<chunkChecker> moveQ;
 };
