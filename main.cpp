@@ -1,18 +1,21 @@
-
-#include <iostream>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include <glm/gtc/noise.hpp>
 #include <glad/glad.h> //must be included before glfw 
 #include <GLFW/glfw3.h>
-#include "header/Shader.h"
+
 #define _USE_MATH_DEFINES
 #include <math.h>
-#include "header/Model.h"
+#include <iostream>
 
+#include "header/Shader.h"
+#include "header/Model.h"
 #include "header/CameraControl.h"
 #include "header/ChunkHandler.h"
+
+
+int constexpr gridSize{ 5 };
 
 
 void initialize();
@@ -139,7 +142,7 @@ int main() {
 
     Mesh camera1Mesh{ campoints, camIndices };
 
-    ChunkHandler chandler{5, 50, 0.1f , 1.8f };   // (gridSize, nrVertices, spacing, yScale)
+    ChunkHandler chandler{gridSize, 50, 0.1f , 1.8f };   // (gridSize, nrVertices, spacing, yScale)
 
     /*
     [vert index ]= generatechunk(); <- vertex + indices 
@@ -218,8 +221,16 @@ int main() {
         glm::mat4 camera1 = camera1Control.computeCameraViewMatrix();
         glm::mat4 modelM = glm::mat4(1.0f);
 
-        /*** Update terrain chiunks ***/
-        chandler.checkChunk(camera1Control.getCameraPosition());
+        /*** Update terrain chunks ***/
+        chandler.updateChunks(camera1Control.getCameraPosition());
+        //chunkChecker inChunk = chandler.checkChunk(camera1Control.getCameraPosition());
+        //if (!inChunk == inside) {
+        //    
+        //    // TODO: Fix threding, draw functions needs to not draw deleted pointers.
+        //    std::thread t1(&ChunkHandler::updateChunks, &chandler, inChunk);
+        //    t1.detach();
+        //    //chandler.updateChunks(inChunk);
+        //}
 
         /*** Draw terrain chunks ***/
         myShader.use();

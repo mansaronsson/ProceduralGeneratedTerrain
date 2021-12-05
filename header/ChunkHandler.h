@@ -5,10 +5,14 @@
 #include "BoundingBox.h"
 #include <glm/gtx/string_cast.hpp>
 #include <iostream>
+#include <queue>
+#include <thread>
 
 enum chunkChecker {
 	inside, up, down, left, right
 };
+
+using chunkInfo = std::tuple<std::vector<Vertex>, std::vector<unsigned int>, std::vector<glm::vec3>, chunkChecker, size_t>;
 
 class ChunkHandler {
 public:
@@ -26,7 +30,6 @@ public:
 		{
 			chunk->draw();
 		}
-
 	}
 
 	void drawBoundingBox() {
@@ -38,18 +41,20 @@ public:
 	/// Check if the camera is inside a chunk on x,z plane 
 	/// </summary>
 	/// <param name="camPos"></param>
-	void checkChunk(const glm::vec3& camPos);
+	chunkChecker checkChunk(const glm::vec3& camPos);
+
+	void generateChunk(chunkChecker cc, size_t id);
 
 	/// <summary>
 	/// Update chunk the camera is currently over ie. get center chunk
 	/// </summary>
 	/// <param name="ch">what chunk direction did we move into</param>
-	void updateCurrentChunk(chunkChecker ch);
+	void updateChunks(const glm::vec3& camPos);
 
 private:
-	//using enum chunkChecker;
 	class Chunk {
 	public:
+		Chunk(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices, const std::vector<glm::vec3>& bBox, size_t _size);
 		Chunk(size_t _size, float xpos, float zpos, float _spacing, float yscale, float frequency) : size{ _size } {
 			std::vector<Vertex> vertices;
 			std::vector<unsigned int> indices;
@@ -107,7 +112,6 @@ private:
 			for (int depth = 0; depth < size; ++depth)
 			{
 				for (int width = 0; width < size; ++width) {
-					std::vector<glm::vec3> neigborhs;
 
 					//neighbor flags 
 					bool up, left, right, down;
@@ -184,14 +188,14 @@ private:
 			float minZ = zpos;
 			float maxZ = zpos + (size - 1) * _spacing;
 
-			glm::vec3 p1{ minX, maxY, minZ }, p2{ maxX, maxY, minZ }, p3{ maxX, maxY, maxZ }, p4{ minX, maxY, maxZ },
-				p5{ minX, minY, minZ }, p6{ maxX, minY, minZ }, p7{ maxX, minY, maxZ }, p8{ minX, minY, maxZ };
+			std::vector<glm::vec3> points{ { minX, maxY, minZ }, { maxX, maxY, minZ }, { maxX, maxY, maxZ }, { minX, maxY, maxZ },
+				{ minX, minY, minZ }, { maxX, minY, minZ }, { maxX, minY, maxZ }, { minX, minY, maxZ } };
 			//
 			//std::cout << glm::to_string(p1) << " " << glm::to_string(p2) << " " << glm::to_string(p3) << '\n'
 			//	<< glm::to_string(p4) << " " << glm::to_string(p5) << " " << glm::to_string(p6) << '\n'
 			//	<< glm::to_string(p7) << " " << glm::to_string(p8) << '\n' << '\n';
 
-			boundingBox = BoundingBox{ p1, p2, p3, p4, p5, p6, p7, p8 };
+			boundingBox = BoundingBox{ points };
 		}
 
 		glm::vec3 getPostition() {
@@ -207,13 +211,15 @@ private:
 		
 		chunkChecker isInside(const glm::vec3& pos);
 
+		size_t id;
+
 	private:
 		unsigned int index(int w, int d) {
 			return w + size * d;
 
 		}
-		const size_t size;
 
+		const size_t size;
 		Mesh mesh;
 		BoundingBox boundingBox;
 	};
@@ -223,12 +229,20 @@ private:
 		return col + gridSize * row;
 	}
 
+	unsigned int chunkIndex(int w, int d) {
+		return w + nrVertices * d;
+	}
 
 	const size_t gridSize;
 	const size_t nrVertices;
 	const float spacing;
 	const float yscale;
 
-	std::vector<Chunk*> chunks;
+	int renderCounter{ static_cast<int>(gridSize) };
+
 	Chunk* currentChunk;
+	std::vector<Chunk*> chunks;
+
+	std::queue<chunkInfo> renderQ;
+	std::queue<chunkChecker> moveQ;
 };
