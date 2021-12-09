@@ -30,7 +30,7 @@ void updateCamera2();
 void printmat4(const glm::mat4& mat);
 
 //settings
-int constexpr gridSize{ 5 };
+int constexpr gridSize{ 3 };
 
 const unsigned int SCREEN_WIDTH = 800, SCREEN_HEIGHT = 600;
 
@@ -102,7 +102,7 @@ int main() {
 
     Mesh camera1Mesh{ campoints, camIndices };
 
-    ChunkHandler chandler{gridSize, 50, 0.1f , 1.8f };   // (gridSize, nrVertices, spacing, yScale)
+    ChunkHandler chandler{gridSize, 55, 0.1f , 1.8f };   // (gridSize, nrVertices, spacing, yScale)
 
     //OpenGL render Settings
     glEnable(GL_DEPTH_TEST);

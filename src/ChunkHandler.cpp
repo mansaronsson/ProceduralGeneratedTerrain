@@ -5,6 +5,7 @@ ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, flo
 	: gridSize{ (_gridSize % 2 == 0 ? (_gridSize + 1) : _gridSize) }, nrVertices{ _nrVertices + 2 }, spacing{ _spacing }, yscale{ _yscale }, currentChunk{ nullptr }
 {
 	//unsigned int size = nrVertices; //two extra rows / columns for the skirts
+	unsigned int lod = 4;
 	float width = (nrVertices - 3 ) * spacing; //width of 1 chunk, -3 due to extra skirts
 
 	for (int row = 0; row < gridSize; ++row) {
@@ -12,7 +13,7 @@ ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, flo
 		for (int col = 0; col < gridSize; ++col) {
 			float xpos = -width * (static_cast<float>(gridSize) / 2.0f) + col * width;
 
-			chunks.push_back(new Chunk{ nrVertices, xpos, zpos, spacing, index(col, row, gridSize) });
+			chunks.push_back(new Chunk{ nrVertices, lod, xpos, zpos, spacing, index(col, row, gridSize) });
 			chunks.back()->bakeMeshes();
 
 		}
@@ -95,9 +96,12 @@ void ChunkHandler::Chunk::bakeMeshes() {
 	boundingBox = BoundingBox{ points };
 }
 
-ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, float xpos, float zpos, float _spacing, unsigned int _id) : nrVertices{ _nrVertices }, XPOS{ xpos }, ZPOS{ zpos }, SPACING{ _spacing }, id{ _id } {
+ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int _id) :
+	lod{ _lod }, nrVertices { (_nrVertices - 1) / _lod + 1 }, XPOS{ xpos }, ZPOS{ zpos }, SPACING{ _spacing * _lod }, id{ _id } {
+	
 	vertices.reserve(nrVertices * nrVertices);
 	indices.reserve(6 * (nrVertices - 2) * (nrVertices - 2) + 3 * nrVertices * 4 - 18); // se notes in lecture 6 
+	
 
 	//Need min and max height of this chunk to compute the bounding box
 	float minY = std::numeric_limits<float>::max();
@@ -107,21 +111,21 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, float xpos, float zpos, flo
 	for (int depth = 0; depth < nrVertices; ++depth)
 	{
 		for (int width = 0; width < nrVertices; ++width) {
-			float x = xpos + width * _spacing;
-			float z = zpos + depth * _spacing;
+			float x = xpos + width * SPACING;
+			float z = zpos + depth * SPACING;
 
 			/*** Skirts should be at the same x and z position as the next / previous vertex ***/
 			if (depth == 0) {
-				z = zpos + (depth + 1) * _spacing;
+				z = zpos + (depth + 1) * SPACING;
 			}
 			if (depth == nrVertices - 1) {
-				z = zpos + (depth - 1) * _spacing;
+				z = zpos + (depth - 1) * SPACING;
 			}
 			if (width == 0) {
-				x = xpos + (width + 1) * _spacing;
+				x = xpos + (width + 1) * SPACING;
 			}
 			if (width == nrVertices - 1) {
-				x = xpos + (width - 1) * _spacing;
+				x = xpos + (width - 1) * SPACING;
 			}
 
 			if (depth == 0 || depth == nrVertices - 1 || width == 0 || width == nrVertices - 1) //edges of grid ie. skirts
@@ -318,10 +322,10 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, float xpos, float zpos, flo
 
 	//create boundingbox ignoring the extra row and column added by the skirts
 	//max x and z already had size - 1 before skirts were added 
-	float minX = xpos + _spacing; 
-	float maxX = xpos + (nrVertices - 2) * _spacing;
-	float minZ = zpos + _spacing;
-	float maxZ = zpos + (nrVertices - 2) * _spacing;
+	float minX = xpos + SPACING;
+	float maxX = xpos + (nrVertices - 2) * SPACING;
+	float minZ = zpos + SPACING;
+	float maxZ = zpos + (nrVertices - 2) * SPACING;
 
 	//Important theese are given in correct order -> see BoundingBox.h ctor
 	points = std::vector<glm::vec3>{ { minX, maxY, minZ }, { maxX, maxY, minZ }, { maxX, maxY, maxZ }, { minX, maxY, maxZ },
@@ -400,7 +404,7 @@ chunkChecker ChunkHandler::checkChunk(const glm::vec3& camPos)
 /// <param name="inside"></param>
 void ChunkHandler::generateChunk(const std::pair<float, float>& newPos, unsigned int nrVeritices, float _spacing, unsigned int id, chunkChecker cc)
 {
-	Chunk* chunk = new Chunk{ nrVertices, newPos.first, newPos.second, _spacing, id };
+	Chunk* chunk = new Chunk{ nrVertices, 2, newPos.first, newPos.second, _spacing, id };
 	renderQ.push({ chunk, cc });
 }
 

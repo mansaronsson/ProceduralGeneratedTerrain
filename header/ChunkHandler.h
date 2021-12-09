@@ -69,7 +69,7 @@ private:
 		/// <param name="xpos">start position x</param>
 		/// <param name="zpos">start position z</param>
 		/// <param name="_spacing">how much space between each vertex</param>
-		Chunk(unsigned int _size, float xpos, float zpos, float _spacing, unsigned int _id);
+		Chunk(unsigned int _size, unsigned int lod, float xpos, float zpos, float _spacing, unsigned int _id);
 		//Chunk(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices, const std::vector<glm::vec3>& bBox, size_t _size);
 
 		glm::vec3 getPostition() {
@@ -122,6 +122,7 @@ private:
 
 		bool drawChunk = true;
 		unsigned int id;
+		unsigned int lod;
 
 	private:
 		//Helper variables, start pos x & z and spacing between vertices
@@ -134,10 +135,11 @@ private:
 		unsigned int index(int w, int d) {
 			return w + nrVertices * d;
 		}
-		//Number of vertices in chunk
-		const unsigned int nrVertices;
+
+		const unsigned int nrVertices;	//Number of vertices in chunk
 		Mesh mesh;
 		BoundingBox boundingBox;
+		Chunk* higherLod;
 	};
 	/*End of chunk class*/
 
