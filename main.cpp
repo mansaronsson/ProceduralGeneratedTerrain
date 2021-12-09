@@ -30,7 +30,7 @@ void updateCamera2();
 void printmat4(const glm::mat4& mat);
 
 //settings
-int constexpr gridSize{ 3 };
+int constexpr gridSize{ 7 };
 
 const unsigned int SCREEN_WIDTH = 800, SCREEN_HEIGHT = 600;
 
@@ -177,12 +177,12 @@ int main() {
         toggleCamera ? myShader.setMat4("P", perspective) : myShader.setMat4("P", perspective2);
         if (wireFrame) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            chandler.draw(lod);
+            chandler.draw();
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
         }
         else {
-            chandler.draw(lod);
+            chandler.draw();
         }
 
         /*** Draw bounding boxes around  ***/

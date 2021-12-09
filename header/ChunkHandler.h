@@ -33,9 +33,13 @@ public:
 		}
 	}
 
-	void draw(int lod) {
+	void draw() {
+
+		auto p0 = currentChunk->getPostition(currentChunk->index(currentChunk->nrVertices / 2, currentChunk->nrVertices / 2));
 		for (auto chunk : chunks)	
 		{
+			auto p1 = chunk->getPostition(chunk->index(chunk->nrVertices / 2, chunk->nrVertices / 2));
+			int lod = computeLOD(p0, p1);
 			chunk->draw(lod);
 		}
 	}
@@ -46,6 +50,23 @@ public:
 		}
 	}
 
+	int computeLOD(const glm::vec3& current, const glm::vec3& p1) {
+		float d = glm::distance(current, p1);
+		float chunkWidth = (nrVertices - 1) * spacing;
+		// Highest lod 
+		if (d < 1.5f * chunkWidth) {
+			return 1;
+		}
+		// Mid lod
+		if(d <= 3.5f * chunkWidth)
+		{
+			return 2;
+		}
+		// Lowest lod
+		else {
+			return 4;
+		}
+	}
 
 	/// <summary>
 	/// Update chunk the camera is currently over ie. get center chunk
@@ -73,8 +94,8 @@ private:
 		Chunk(unsigned int _size, unsigned int lod, float xpos, float zpos, float _spacing, unsigned int _id);
 		//Chunk(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices, const std::vector<glm::vec3>& bBox, size_t _size);
 
-		glm::vec3 getPostition() {
-			return mesh.vertices[0].position;
+		glm::vec3 getPostition(int index = 0) {
+			return mesh.vertices[index].position;
 		}
 
 		void draw(int _lod) {
@@ -132,9 +153,15 @@ private:
 
 		Chunk* generateLOD(unsigned int nrVerticies, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int id);
 
+		unsigned int index(int w, int d) {
+			return w + nrVertices * d;
+		}
+
 		bool drawChunk = true;
 		unsigned int id;
 		unsigned int lod;
+		const unsigned int nrVertices;	//Number of vertices in chunk
+
 
 	private:
 		//Helper variables, start pos x & z and spacing between vertices
@@ -144,11 +171,6 @@ private:
 		std::vector<unsigned int> indices;
 		std::vector<glm::vec3> points;
 
-		unsigned int index(int w, int d) {
-			return w + nrVertices * d;
-		}
-
-		const unsigned int nrVertices;	//Number of vertices in chunk
 		Mesh mesh;
 		BoundingBox boundingBox;
 		Chunk* higherLod;
