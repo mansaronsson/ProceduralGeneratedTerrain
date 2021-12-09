@@ -40,6 +40,8 @@ bool toggleCamera{ true };
 
 CameraControl camera1Control{ glm::vec3{ 0.0f, 1.0f, 0.0f } };
 
+int lod = 1;
+
 
 float deltaTime = 0.0f, lastFrame = 0.0f;
 
@@ -102,7 +104,7 @@ int main() {
 
     Mesh camera1Mesh{ campoints, camIndices };
 
-    ChunkHandler chandler{gridSize, 55, 0.1f , 1.8f };   // (gridSize, nrVertices, spacing, yScale)
+    ChunkHandler chandler{gridSize, 53, 0.1f , 1.8f };   // (gridSize, nrVertices, spacing, yScale)
 
     //OpenGL render Settings
     glEnable(GL_DEPTH_TEST);
@@ -175,12 +177,12 @@ int main() {
         toggleCamera ? myShader.setMat4("P", perspective) : myShader.setMat4("P", perspective2);
         if (wireFrame) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            chandler.draw();
+            chandler.draw(lod);
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
         }
         else {
-            chandler.draw();
+            chandler.draw(lod);
         }
 
         /*** Draw bounding boxes around  ***/
@@ -335,7 +337,15 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     if (key == GLFW_KEY_B && action == GLFW_PRESS) {
         drawbb = !drawbb;
     }
-
+    if(key == GLFW_KEY_1 && action == GLFW_PRESS) {
+        lod = 1;
+    }
+    if(key == GLFW_KEY_2 && action == GLFW_PRESS) {
+        lod = 2;
+    }
+    if(key == GLFW_KEY_3 && action == GLFW_PRESS) {
+        lod = 4;
+    }
     
 }
 

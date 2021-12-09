@@ -2,11 +2,11 @@
 #include <iostream>
 
 ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, float _spacing, float _yscale)
-	: gridSize{ (_gridSize % 2 == 0 ? (_gridSize + 1) : _gridSize) }, nrVertices{ _nrVertices + 2 }, spacing{ _spacing }, yscale{ _yscale }, currentChunk{ nullptr }
+	: gridSize{ (_gridSize % 2 == 0 ? (_gridSize + 1) : _gridSize) }, nrVertices{ _nrVertices }, spacing{ _spacing }, yscale{ _yscale }, currentChunk{ nullptr }
 {
 	//unsigned int size = nrVertices; //two extra rows / columns for the skirts
-	unsigned int lod = 4;
-	float width = (nrVertices - 3 ) * spacing; //width of 1 chunk, -3 due to extra skirts
+	unsigned int lod = 1;
+	float width = (nrVertices - 1) * spacing; //width of 1 chunk, -3 due to extra skirts
 
 	for (int row = 0; row < gridSize; ++row) {
 		float zpos = -width * (static_cast<float>(gridSize) / 2.0f) + row * width;
@@ -50,8 +50,8 @@ glm::vec3 ChunkHandler::Chunk::createPointWithNoise(float x, float z, float* min
 }
 
 std::pair<float, float> ChunkHandler::Chunk::computeXZpos(int width, int depth) const {
-	float x = XPOS + width * SPACING;
-	float z = ZPOS + depth * SPACING;
+	float x = XPOS + (width - 1) * SPACING;
+	float z = ZPOS + (depth - 1) * SPACING;
 	return std::pair<float, float>{x, z};
 }
 
@@ -94,11 +94,22 @@ glm::vec3 ChunkHandler::Chunk::computeNormal(const std::vector<glm::vec3>& p,con
 void ChunkHandler::Chunk::bakeMeshes() {
 	mesh = Mesh{ vertices, indices };
 	boundingBox = BoundingBox{ points };
+
+	if (higherLod)
+		higherLod->bakeMeshes();
 }
 
 ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int _id) :
-	lod{ _lod }, nrVertices { (_nrVertices - 1) / _lod + 1 }, XPOS{ xpos }, ZPOS{ zpos }, SPACING{ _spacing * _lod }, id{ _id } {
+	lod{ _lod }, nrVertices { (_nrVertices - 1) / _lod + 3 }, XPOS{ xpos }, ZPOS{ zpos }, SPACING{ _spacing * _lod }, id{ _id } {
 	
+	unsigned int newLod = _lod * 2;
+	if (newLod <= 4)
+		higherLod = new Chunk{ _nrVertices, newLod, xpos, zpos, _spacing, 0 };
+		//auto future = std::async(generateLOD, this, _nrVertices, newLod, xpos, zpos, _spacing, _id);
+		//Chunk* temp = future.get();
+	else
+		higherLod = nullptr;
+
 	vertices.reserve(nrVertices * nrVertices);
 	indices.reserve(6 * (nrVertices - 2) * (nrVertices - 2) + 3 * nrVertices * 4 - 18); // se notes in lecture 6 
 	
@@ -111,21 +122,21 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 	for (int depth = 0; depth < nrVertices; ++depth)
 	{
 		for (int width = 0; width < nrVertices; ++width) {
-			float x = xpos + width * SPACING;
-			float z = zpos + depth * SPACING;
+			float x = xpos + (width - 1) * SPACING;
+			float z = zpos + (depth - 1) * SPACING;
 
 			/*** Skirts should be at the same x and z position as the next / previous vertex ***/
 			if (depth == 0) {
-				z = zpos + (depth + 1) * SPACING;
+				z = zpos + (depth + 0) * SPACING;
 			}
 			if (depth == nrVertices - 1) {
-				z = zpos + (depth - 1) * SPACING;
+				z = zpos + (depth - 2) * SPACING;
 			}
 			if (width == 0) {
-				x = xpos + (width + 1) * SPACING;
+				x = xpos + (width + 0) * SPACING;
 			}
 			if (width == nrVertices - 1) {
-				x = xpos + (width - 1) * SPACING;
+				x = xpos + (width - 2) * SPACING;
 			}
 
 			if (depth == 0 || depth == nrVertices - 1 || width == 0 || width == nrVertices - 1) //edges of grid ie. skirts
@@ -322,16 +333,14 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 
 	//create boundingbox ignoring the extra row and column added by the skirts
 	//max x and z already had size - 1 before skirts were added 
-	float minX = xpos + SPACING;
-	float maxX = xpos + (nrVertices - 2) * SPACING;
-	float minZ = zpos + SPACING;
-	float maxZ = zpos + (nrVertices - 2) * SPACING;
+	float minX = xpos;
+	float maxX = xpos + (nrVertices - 3) * SPACING;
+	float minZ = zpos;
+	float maxZ = zpos + (nrVertices - 3) * SPACING;
 
 	//Important theese are given in correct order -> see BoundingBox.h ctor
 	points = std::vector<glm::vec3>{ { minX, maxY, minZ }, { maxX, maxY, minZ }, { maxX, maxY, maxZ }, { minX, maxY, maxZ },
 				{ minX, minY, minZ }, { maxX, minY, minZ }, { maxX, minY, maxZ }, { minX, minY, maxZ } };
-
-	//boundingBox = BoundingBox{ points };
 }
 
 chunkChecker ChunkHandler::Chunk::checkMovement(const glm::vec3& pos)
@@ -404,8 +413,15 @@ chunkChecker ChunkHandler::checkChunk(const glm::vec3& camPos)
 /// <param name="inside"></param>
 void ChunkHandler::generateChunk(const std::pair<float, float>& newPos, unsigned int nrVeritices, float _spacing, unsigned int id, chunkChecker cc)
 {
-	Chunk* chunk = new Chunk{ nrVertices, 2, newPos.first, newPos.second, _spacing, id };
+	Chunk* chunk = new Chunk{ nrVertices, 1, newPos.first, newPos.second, _spacing, id };
+	//std::future<Chunk*> ret = std::async();
+
 	renderQ.push({ chunk, cc });
+}
+
+ChunkHandler::Chunk* ChunkHandler::Chunk::generateLOD(unsigned int nrVerticies, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int id) {
+	Chunk* chunkLOD = new Chunk{ nrVerticies, _lod, xpos, zpos, _spacing, id };
+	return chunkLOD;
 }
 
 
@@ -625,20 +641,20 @@ std::pair<float, float> ChunkHandler::newChunkPosition(chunkChecker cc, unsigned
 
 	switch (cc) {
 	case chunkChecker::up:
-		newPos.first = prevPos.x - spacing;
-		newPos.second = prevPos.z - (nrVertices - 2) * spacing;
+		newPos.first = prevPos.x;
+		newPos.second = prevPos.z - (nrVertices - 1) * spacing;
 		break;
 	case chunkChecker::down:
-		newPos.first = prevPos.x - spacing;
-		newPos.second = prevPos.z + (nrVertices - 4) * spacing;
+		newPos.first = prevPos.x;
+		newPos.second = prevPos.z + (nrVertices - 1) * spacing;
 		break;
 	case chunkChecker::left:
-		newPos.first = prevPos.x - (nrVertices - 2) * spacing;
-		newPos.second = prevPos.z - spacing;
+		newPos.first = prevPos.x - (nrVertices - 1) * spacing;
+		newPos.second = prevPos.z;
 		break;
 	case chunkChecker::right:
-		newPos.first = prevPos.x + (nrVertices - 4) * spacing;
-		newPos.second = prevPos.z - spacing;
+		newPos.first = prevPos.x + (nrVertices - 1) * spacing;
+		newPos.second = prevPos.z;
 		break;
 	default:
 		break;

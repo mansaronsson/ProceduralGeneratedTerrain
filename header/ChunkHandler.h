@@ -9,6 +9,7 @@
 #include <queue>
 #include <thread>
 #include <mutex>
+#include <future>
 
 enum chunkChecker {
 	inside, up, down, left, right
@@ -32,10 +33,10 @@ public:
 		}
 	}
 
-	void draw() {
+	void draw(int lod) {
 		for (auto chunk : chunks)	
 		{
-			chunk->draw();
+			chunk->draw(lod);
 		}
 	}
 
@@ -76,9 +77,18 @@ private:
 			return mesh.vertices[0].position;
 		}
 
-		void draw() {
-			if(drawChunk)
-				mesh.draw(GL_TRIANGLES);
+		void draw(int _lod) {
+			if (drawChunk) {
+				if(_lod == lod)
+					mesh.draw(GL_TRIANGLES);
+				else
+				{
+					if(higherLod != nullptr)
+					{
+						higherLod->draw(_lod);
+					}
+				}
+			}
 		}
 		void drawBoundingBox() {
 			if (drawChunk)
@@ -119,6 +129,8 @@ private:
 		/// <param name="n">plane normal</param>
 		/// <returns></returns>
 		std::pair<glm::vec3, glm::vec3> computePN(const glm::vec3& n) const;
+
+		Chunk* generateLOD(unsigned int nrVerticies, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int id);
 
 		bool drawChunk = true;
 		unsigned int id;
