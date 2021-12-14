@@ -99,11 +99,28 @@ void ChunkHandler::Chunk::bakeMeshes() {
 		higherLod->bakeMeshes();
 }
 
+glm::vec3 ChunkHandler::Chunk::setColorFromLOD() {
+	switch (lod)
+	{
+	case 1:
+		return glm::vec3{ 0.2f, 1.0f, 0.2f };
+	case 2:
+		return glm::vec3{ 1.0f, 1.0f, 0.0f };
+	case 4: 
+		return glm::vec3{ 1.0f, 0.5f, 0.0f };
+	case 8:
+		return glm::vec3{ 1.0f, 0.2f, 0.2f };
+	default:
+		return glm::vec3{ 0.7f, 0.7f, 0.7f };
+		break;
+	}
+}
+
 ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int _id) :
 	lod{ _lod }, nrVertices { (_nrVertices - 1) / _lod + 3 }, XPOS{ xpos }, ZPOS{ zpos }, SPACING{ _spacing * _lod }, id{ _id } {
-	
+	int MAXLOD = 8;
 	unsigned int newLod = _lod * 2;
-	if (newLod <= 4)
+	if (newLod <= MAXLOD)
 		higherLod = new Chunk{ _nrVertices, newLod, xpos, zpos, _spacing, 0 };
 		//auto future = std::async(generateLOD, this, _nrVertices, newLod, xpos, zpos, _spacing, _id);
 		//Chunk* temp = future.get();
@@ -113,7 +130,7 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 	vertices.reserve(nrVertices * nrVertices);
 	indices.reserve(6 * (nrVertices - 2) * (nrVertices - 2) + 3 * nrVertices * 4 - 18); // se notes in lecture 6 
 	
-
+	color = setColorFromLOD();
 	//Need min and max height of this chunk to compute the bounding box
 	float minY = std::numeric_limits<float>::max();
 	float maxY = std::numeric_limits<float>::min();
@@ -150,6 +167,7 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 				auto pos = createPointWithNoise(x, z, &minY, &maxY);
 				vertices.push_back({ pos });
 			}
+			vertices.back().color = color;
 
 			//add indices to create triangle list
 			if (width < nrVertices - 1 && depth < nrVertices - 1) {

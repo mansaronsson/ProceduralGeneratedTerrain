@@ -63,9 +63,10 @@ public:
 			return 2;
 		}
 		// Lowest lod
-		else {
+		else if( d <= 5.0f * chunkWidth) {
 			return 4;
 		}
+		return 8;
 	}
 
 	/// <summary>
@@ -93,6 +94,15 @@ private:
 		/// <param name="_spacing">how much space between each vertex</param>
 		Chunk(unsigned int _size, unsigned int lod, float xpos, float zpos, float _spacing, unsigned int _id);
 		//Chunk(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices, const std::vector<glm::vec3>& bBox, size_t _size);
+
+		~Chunk() {
+			mesh.deleteMesh();
+			boundingBox.deleteBoundingBox();
+			if (higherLod != nullptr)
+			{
+				delete higherLod;
+			}
+		}
 
 		glm::vec3 getPostition(int index = 0) {
 			return mesh.vertices[index].position;
@@ -140,6 +150,7 @@ private:
 		/// <param name="v0">: starting point </param>
 		glm::vec3 computeNormal(const std::vector<glm::vec3>& p,const glm::vec3& v0) const;
 
+		glm::vec3 setColorFromLOD();
 
 		chunkChecker checkMovement(const glm::vec3& pos);
 
@@ -163,6 +174,7 @@ private:
 		const unsigned int nrVertices;	//Number of vertices in chunk
 
 
+
 	private:
 		//Helper variables, start pos x & z and spacing between vertices
 		float XPOS, ZPOS, SPACING;
@@ -170,6 +182,7 @@ private:
 		std::vector<Vertex> vertices;
 		std::vector<unsigned int> indices;
 		std::vector<glm::vec3> points;
+		glm::vec3 color;
 
 		Mesh mesh;
 		BoundingBox boundingBox;

@@ -104,7 +104,7 @@ int main() {
 
     Mesh camera1Mesh{ campoints, camIndices };
 
-    ChunkHandler chandler{gridSize, 53, 0.1f , 1.8f };   // (gridSize, nrVertices, spacing, yScale)
+    ChunkHandler chandler{gridSize, 65, 0.1f , 1.8f };   // (gridSize, nrVertices, spacing, yScale)
 
     //OpenGL render Settings
     glEnable(GL_DEPTH_TEST);
@@ -175,6 +175,11 @@ int main() {
         myShader.setMat4("M", modelM);
         toggleCamera ? myShader.setMat4("V", camera1) : myShader.setMat4("V", camera2);
         toggleCamera ? myShader.setMat4("P", perspective) : myShader.setMat4("P", perspective2);
+
+        if(glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS)
+            myShader.setBool("colorDistance", true);
+        if(glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS)
+            myShader.setBool("colorDistance", false);
         if (wireFrame) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
             chandler.draw();
@@ -345,8 +350,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     }
     if(key == GLFW_KEY_3 && action == GLFW_PRESS) {
         lod = 4;
-    }
-    
+    }    
 }
 
 void mouse_position_callback(GLFWwindow* window, double xpos, double ypos) {

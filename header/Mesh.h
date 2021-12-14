@@ -10,6 +10,7 @@ struct Vertex
 {
 	glm::vec3 position;
 	glm::vec3 normal = glm::vec3{ 0.0f };
+	glm::vec3 color = glm::vec3{ 0.0f };
 };
 
 class Mesh
@@ -20,10 +21,16 @@ public:
 
 	Mesh() = default;
 	Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices);
+
+	/// <summary>
+	/// Remove buffer objects from VRAM
+	/// </summary>
+	void deleteMesh();
 	
 	void draw(int polygonMode);
 private:
 	unsigned int VAO, VBO, EBO;
+	bool bakedMesh = false;
 
 	void setupMesh();
 };

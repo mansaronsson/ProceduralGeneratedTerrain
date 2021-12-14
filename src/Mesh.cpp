@@ -8,6 +8,15 @@ Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>&
     setupMesh();
 }
 
+void Mesh::deleteMesh()
+{
+    if (bakedMesh) {
+        glDeleteBuffers(1, &EBO);
+        glDeleteBuffers(1, &VBO);
+        glDeleteVertexArrays(1, &VAO);
+    }
+}
+
 void Mesh::draw(int polygonMode)
 {
     glBindVertexArray(VAO);
@@ -35,6 +44,10 @@ void Mesh::setupMesh()
     // vertex normals
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+    // Color
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, color));
 
+    bakedMesh = true;
     glBindVertexArray(0);
 }

@@ -3,7 +3,10 @@ out vec4 outColor;
 
 in vec3 o_normal;
 in vec3 pos;
+in vec3 o_color;
+
 vec3 lightdir = vec3(1.0, 1.0, 0.0);
+uniform bool colorDistance;
 
 void main() {
 	vec3 normal = normalize(o_normal);
@@ -24,7 +27,10 @@ void main() {
 		color = vec3(0.2, 0.2, 0.7);
 	}
 	
-	outColor = vec4(0.1, 0.1, 0.1, 1.0) + k * vec4(color, 1.0);
+	if(colorDistance)
+		outColor = k * vec4(o_color, 1.0f);
+	else 
+		outColor = vec4(0.1, 0.1, 0.1, 1.0) + k * vec4(color, 1.0);
 }
 
 /*#version 330 core

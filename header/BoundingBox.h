@@ -25,6 +25,10 @@ public:
 		};
 		boundingMesh = Mesh{vertices, indices};
 	}
+	void deleteBoundingBox()
+	{
+		boundingMesh.deleteMesh();
+	}
 
 	void draw() {
 		glDisable(GL_CULL_FACE);
