@@ -1,8 +1,9 @@
 #include "..\header\ChunkHandler.h"
 #include <iostream>
 
-ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, float _spacing, float _yscale)
-	: gridSize{ (_gridSize % 2 == 0 ? (_gridSize + 1) : _gridSize) }, nrVertices{ _nrVertices }, spacing{ _spacing }, yscale{ _yscale }, currentChunk{ nullptr }
+ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, float _spacing, float _yscale, std::function<void(ChunkHandler&, float,float,float,float)> func)
+	: gridSize{ (_gridSize % 2 == 0 ? (_gridSize + 1) : _gridSize) }, nrVertices{ _nrVertices }, spacing{ _spacing }, yscale{ _yscale }, currentChunk{ nullptr },
+	callbackfunc{ func }
 {
 	//unsigned int size = nrVertices; //two extra rows / columns for the skirts
 	unsigned int lod = 1;
@@ -16,6 +17,12 @@ ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, flo
 			chunks.push_back(new Chunk{ nrVertices, lod, xpos, zpos, spacing, index(col, row, gridSize) });
 			chunks.back()->bakeMeshes();
 
+			//Create trees in new chunk using callback function
+			auto chunk = chunks.back();
+			auto p1 = chunk->getPostition(0); //first vertex 
+			auto p2 = chunk->getPostition(chunk->index(chunk->nrVertices - 1, chunk->nrVertices - 1)); //last vertex
+
+			callbackfunc(*this, p1.x, p2.x, p1.z, p2.z);
 		}
 	}
 	currentChunk = chunks[gridSize * gridSize / 2];
@@ -118,6 +125,7 @@ glm::vec3 ChunkHandler::Chunk::setColorFromLOD() {
 
 ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int _id) :
 	lod{ _lod }, nrVertices { (_nrVertices - 1) / _lod + 3 }, XPOS{ xpos }, ZPOS{ zpos }, SPACING{ _spacing * _lod }, id{ _id } {
+
 	int MAXLOD = 8;
 	unsigned int newLod = _lod * 2;
 	if (newLod <= MAXLOD)
@@ -158,7 +166,7 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 
 			if (depth == 0 || depth == nrVertices - 1 || width == 0 || width == nrVertices - 1) //edges of grid ie. skirts
 			{
-				float skirtDepth = -3.0f;
+				float skirtDepth = -5.0f;
 				glm::vec3 pos{ x, skirtDepth, z };
 				vertices.push_back({ pos });
 			}
@@ -167,7 +175,7 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 				auto pos = createPointWithNoise(x, z, &minY, &maxY);
 				vertices.push_back({ pos });
 			}
-			vertices.back().color = color;
+			//vertices.back().color = color;
 
 			//add indices to create triangle list
 			if (width < nrVertices - 1 && depth < nrVertices - 1) {
@@ -346,7 +354,34 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 			vertices[index(width, depth)].normal = normal;
 		}
 	}
+	glm::vec3 ground{ 0.0f, 1.0f, 0.0f };
+	for (Vertex& vert : vertices) {
+		glm::vec3 p = vert.position;
+		float offset = 0.01f;
+		auto p1 = createPointWithNoise(p.x + offset, p.z);
+		auto p2 = createPointWithNoise(p.x + offset, p.z + offset);
+		glm::vec3 e1 = p1 - p;
+		glm::vec3 e2 = p2 - p;
+		glm::vec3 normal = glm::normalize(glm::cross(e2, e1));
+		std::cout << "new normal " << glm::to_string(normal) << '\n';
+		float angle2 = std::acosf(glm::dot(normal, ground)) * 180 / 3.14f;
 
+
+
+		float angle = std::acosf(glm::dot(vert.normal, ground)) * 180 / 3.14f;
+		std::cout << "normal " << glm::to_string(vert.normal) << "\n";
+
+		//std::cout << "difference " glm::to_string(vert.normal - normal)) << 
+		std::cout << "new angle " << angle2 << '\n';
+		std::cout << " angle " << angle << '\n' << std::endl;
+		if (angle < 40)
+		{
+			vert.color = glm::vec3{ 0.0f, 1.0f, 0.0f };
+		}
+		else
+			vert.color = glm::vec3{ 1.0f, 0.0f, 0.0f };
+
+	}
 	//mesh = Mesh{ vertices, indices }; 
 
 	//create boundingbox ignoring the extra row and column added by the skirts
@@ -366,6 +401,7 @@ chunkChecker ChunkHandler::Chunk::checkMovement(const glm::vec3& pos)
 	chunkChecker cc = inside;
 	auto v1 = mesh.vertices[0].position; //first vertex in chunk
 	auto v2 = mesh.vertices[mesh.vertices.size() - 1].position; // last vertex in chunk
+	//std::cout << " p1 " << glm::to_string(v1) << " p2 " << glm::to_string(v2) << '\n';
 
 	//Check if position is within chunk borders spanned by v1 and v2 in the x,z plane
 	if (pos.z < v1.z) {
@@ -544,6 +580,12 @@ void ChunkHandler::updateChunks(const glm::vec3& camPos)
 		
 		Chunk* newChunk = std::get<Chunk*>(ci);
 		newChunk->bakeMeshes();
+
+		//Generate new trees in chunk
+		auto p1 = newChunk->getPostition(0); //first vertex 
+		auto p2 = newChunk->getPostition(newChunk->index(newChunk->nrVertices - 1, newChunk->nrVertices - 1)); //last vertex
+
+		callbackfunc(*this, p1.x, p2.x, p1.z, p2.z);
 
 		Chunk* temp;
 		unsigned int id = newChunk->id;

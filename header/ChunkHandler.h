@@ -24,8 +24,11 @@ public:
 	/// <param name="nrVertices">number of vertecies per chunk excluding skirts</param>
 	/// <param name="spacing">distance between vertices</param>
 	/// <param name="yscale">how much to scale in the y direction</param>
-	ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, float _spacing, float _yscale);
+	ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, float _spacing, float _yscale, std::function<void(ChunkHandler&, float, float, float, float)> func);
 
+	void nrofchunks() {
+		std::cout << "current chunks in list: " << chunks.size() << '\n';
+	}
 
 	void cullTerrain(bool cull) {
 		for (auto chunk : chunks) {
@@ -67,6 +70,10 @@ public:
 			return 4;
 		}
 		return 8;
+	}
+
+	glm::vec3 getPointOnTerrain(float x, float z) {
+		return currentChunk->createPointWithNoise(x, z);
 	}
 
 	/// <summary>
@@ -219,4 +226,7 @@ private:
 	using chunkInfo = std::tuple<Chunk*, chunkChecker>;
 	std::queue<chunkInfo> renderQ;
 	std::queue<chunkChecker> moveQ;
+
+
+	std::function<void(ChunkHandler&, float, float, float, float)> callbackfunc;
 };
