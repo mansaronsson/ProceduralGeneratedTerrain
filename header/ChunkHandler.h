@@ -33,13 +33,13 @@ public:
 		}
 	}
 
-	void draw() {
+	void draw(const glm::vec3& camposition) {
 
-		auto p0 = currentChunk->getPostition(currentChunk->index(currentChunk->nrVertices / 2, currentChunk->nrVertices / 2));
+		//auto p0 = currentChunk->getPostition(currentChunk->index(currentChunk->nrVertices / 2, currentChunk->nrVertices / 2));
 		for (auto chunk : chunks)	
 		{
 			auto p1 = chunk->getPostition(chunk->index(chunk->nrVertices / 2, chunk->nrVertices / 2));
-			int lod = computeLOD(p0, p1);
+			int lod = computeLOD(camposition, p1);
 			chunk->draw(lod);
 		}
 	}
@@ -50,23 +50,26 @@ public:
 		}
 	}
 
-	int computeLOD(const glm::vec3& current, const glm::vec3& p1) {
-		float d = glm::distance(current, p1);
+	int computeLOD(const glm::vec3& position, const glm::vec3& chunkposition) {
+		float d = glm::distance(position, chunkposition);
 		float chunkWidth = (nrVertices - 1) * spacing;
 		// Highest lod 
 		if (d < 1.5f * chunkWidth) {
 			return 1;
 		}
 		// Mid lod
-		if(d <= 3.5f * chunkWidth)
+		if (d <= 2.5f * chunkWidth)
 		{
 			return 2;
 		}
 		// Lowest lod
-		else if( d <= 5.0f * chunkWidth) {
+		else if (d <= 3.5f * chunkWidth) {
 			return 4;
 		}
-		return 8;
+		else if (d <= 5.0f * chunkWidth)
+			return 8;
+		else
+			return 16;
 	}
 
 	/// <summary>

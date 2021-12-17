@@ -30,9 +30,11 @@ void updateCamera2();
 void printmat4(const glm::mat4& mat);
 
 //settings
-int constexpr gridSize{ 7 };
+int constexpr gridSize{ 11 };
+int constexpr nrVertices{ 161 };
+float constexpr spacing{ 0.075 };
 
-const unsigned int SCREEN_WIDTH = 800, SCREEN_HEIGHT = 600;
+const unsigned int SCREEN_WIDTH = 1600, SCREEN_HEIGHT = 900;
 
 glm::mat4 camera2 = glm::mat4(1.0f);
 
@@ -81,7 +83,7 @@ int main() {
     Shader cameraShader{ "shaders/cameraVertex.vert", "shaders/cameraFragment.frag" };
     Shader boundingBoxShader{ "shaders/boundingBoxVertex.vert", "shaders/boundingBoxFragment.frag" };
 
-    glm::mat4 perspective = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 30.0f);
+    glm::mat4 perspective = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 200.0f);
     glm::mat4 perspective2 = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 100.0f);
 
     /*** Always use the larger perspective to render camera frustum, otherwise it risk being culled in viewport ***/
@@ -104,7 +106,8 @@ int main() {
 
     Mesh camera1Mesh{ campoints, camIndices };
 
-    ChunkHandler chandler{gridSize, 65, 0.1f , 1.8f };   // (gridSize, nrVertices, spacing, yScale)
+    //65
+    ChunkHandler chandler{gridSize, nrVertices, spacing , 1.8f };   // (gridSize, nrVertices, spacing, yScale)
 
     //OpenGL render Settings
     glEnable(GL_DEPTH_TEST);
@@ -175,40 +178,28 @@ int main() {
         myShader.setMat4("M", modelM);
         toggleCamera ? myShader.setMat4("V", camera1) : myShader.setMat4("V", camera2);
         toggleCamera ? myShader.setMat4("P", perspective) : myShader.setMat4("P", perspective2);
-
+        //Draw terrain color or distance color
         if(glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS)
             myShader.setBool("colorDistance", true);
         if(glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS)
             myShader.setBool("colorDistance", false);
+
         if (wireFrame) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            chandler.draw();
+            chandler.draw(camera1Control.getCameraPosition());
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
         }
         else {
-            chandler.draw();
+            chandler.draw(camera1Control.getCameraPosition());
         }
 
-        /*** Draw bounding boxes around  ***/
+        /*** Draw bounding boxes around chunks  ***/
         boundingBoxShader.use();
         boundingBoxShader.setMat4("M", modelM);
         toggleCamera ? boundingBoxShader.setMat4("V", camera1) : boundingBoxShader.setMat4("V", camera2);
         toggleCamera ? boundingBoxShader.setMat4("P", perspective) : boundingBoxShader.setMat4("P", perspective2);
         if(drawbb)
             chandler.drawBoundingBox();
-
-        //if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
-        //    //printmat4(invproj);
-        //    //std::cout << '\n';
-        //    for (int i = 0; i < campoints.size(); ++i) {
-        //        glm::vec4 p = (invproj) * glm::vec4(campoints[i].position, 1.0f);
-        //        glm::vec3 c = glm::vec3{ p.x / p.w, p.y / p.w, p.z / p.w };
-        //        //std::cout << "point " << i+1 << ": "  << c.x << " " << c.y << " " << c.z << '\n';
-        //    }
-        //    //std::cout << '\n';
-
-        //}
 
         glfwSwapBuffers(window);
         glfwPollEvents();
