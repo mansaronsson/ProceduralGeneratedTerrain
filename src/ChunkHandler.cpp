@@ -5,117 +5,25 @@ ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, flo
 	: gridSize{ (_gridSize % 2 == 0 ? (_gridSize + 1) : _gridSize) }, nrVertices{ _nrVertices }, spacing{ _spacing }, yscale{ _yscale }, currentChunk{ nullptr }
 {
 	//unsigned int size = nrVertices; //two extra rows / columns for the skirts
-	unsigned int maxLOD{ 16 };
+	unsigned int lod = 1;
 	float width = (nrVertices - 1) * spacing; //width of 1 chunk, -3 due to extra skirts
 
-	std::vector<std::future<Chunk*>> f;
-	std::vector<std::thread> t;
 	for (int row = 0; row < gridSize; ++row) {
 		float zpos = -width * (static_cast<float>(gridSize) / 2.0f) + row * width;
 		for (int col = 0; col < gridSize; ++col) {
 			float xpos = -width * (static_cast<float>(gridSize) / 2.0f) + col * width;
 
-			// Threads the creation of the grid
-			for (int lod = maxLOD; lod > 0; lod /= 2) {
+			chunks.push_back(new Chunk{ nrVertices, lod, xpos, zpos, spacing, index(col, row, gridSize) });
+			chunks.back()->bakeMeshes();
 
-				std::promise<Chunk*> p;
-				f.push_back(p.get_future());
-				std::thread th = std::thread(&ChunkHandler::generateLOD, this, std::move(p), nrVertices, lod, xpos, zpos, spacing, index(col, row, gridSize));
-				t.push_back(std::move(th));
-			}
 		}
 	}
-
-	// Join all threads
-	for (auto& th : t) {
-		th.join();
-	}
-
-	for (auto& fu : f) {
-		Chunk* c = fu.get();
-		c->bakeMeshes();
-		initializeChunk(c);
-	}
-
 	currentChunk = chunks[gridSize * gridSize / 2];
-}
-
-// Threaded Chunk creation for every LOD
-void ChunkHandler::generateLOD(std::promise<Chunk*>&& p, unsigned int nrVerticies, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int id) {
-	Chunk* chunkLOD = new Chunk{ nrVerticies, _lod, xpos, zpos, _spacing, id };
-	p.set_value(chunkLOD);
-}
-
-void ChunkHandler::initializeChunk(Chunk* c) {
-	// Empty vector
-	if (chunks.empty()) {
-		chunks.push_back(c);
-	}
-	else {
-		insertLOD(c, true);
-	}
-}
-
-/// <summary>
-/// Inserts new LOD Chunks in the correct position in the LOD-list. If init == true, any Chunk that can't find its parent will be inserted instead of deleted.
-/// </summary>
-/// <param name="c"></param>
-/// <param name="init"></param>
-void ChunkHandler::insertLOD(Chunk* c, bool init) {
-
-	float constexpr epsilon{ 1e-3 };
-
-	auto it = chunks.begin();
-	while (it != chunks.end()) {
-		// Finds chunks in the same position
-		if (glm::distance(c->getPostition(), (*it)->getPostition()) < epsilon) {
-
-			c->id = (*it)->id;
-			Chunk* temp = (*it);
-
-			// If c is new lowest lod, places it in chunks vector
-			if (temp->lod < c->lod) {
-				c->higherLod = temp;
-				chunks[c->id] = c;
-			}
-			else {
-
-				// All LOD gets in correct order
-				Chunk* parent = nullptr;
-				while (temp != nullptr && c->lod < temp->lod) {
-					c->higherLod = temp->higherLod;
-					temp->higherLod = c;
-
-					if (parent) parent->higherLod = temp;
-
-					parent = temp;
-					temp = c->higherLod;
-
-				}
-			}
-			break;
-		}
-		// If this is the initilization of the grid, insert Chunk into chunks vector
-		else if (init && c->id < (*it)->id) {
-			chunks.insert(it, c);
-			break;
-		}
-		++it;
-	}
-	// If this is the initilization of the grid, insert Chunk into chunks vector
-	if (init && it == chunks.end()) {
-		chunks.push_back(c);
-	}
-	// The created chunk is now out of scope and is deleted instead
-	else if(it == chunks.end()) {
-		delete c;
-		c = nullptr;
-	}
 }
  
 glm::vec3 ChunkHandler::Chunk::createPointWithNoise(float x, float z, float* minY, float* maxY ) const {
 	/*** Apply noise to the height ie. y component using fbm ***/
-	int octaves = 8;
+	int octaves = 6;
 	float noiseSum = 0.0f;
 	float seed = 0.1f;
 	float amplitude = 6.0f;
@@ -190,8 +98,8 @@ void ChunkHandler::Chunk::bakeMeshes() {
 	mesh = Mesh{ vertices, indices };
 	boundingBox = BoundingBox{ points };
 
-	//if (higherLod)
-	//	higherLod->bakeMeshes();
+	if (higherLod)
+		higherLod->bakeMeshes();
 }
 
 glm::vec3 ChunkHandler::Chunk::setColorFromLOD() {
@@ -215,6 +123,14 @@ glm::vec3 ChunkHandler::Chunk::setColorFromLOD() {
 
 ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int _id) :
 	lod{ _lod }, nrVertices { (_nrVertices - 1) / _lod + 3 }, XPOS{ xpos }, ZPOS{ zpos }, SPACING{ _spacing * _lod }, id{ _id } {
+	int MAXLOD = 16;
+	unsigned int newLod = _lod * 2;
+	if (newLod <= MAXLOD)
+		higherLod = new Chunk{ _nrVertices, newLod, xpos, zpos, _spacing, 0 };
+		//auto future = std::async(generateLOD, this, _nrVertices, newLod, xpos, zpos, _spacing, _id);
+		//Chunk* temp = future.get();
+	else
+		higherLod = nullptr;
 
 	vertices.reserve(nrVertices * nrVertices);
 	indices.reserve(6 * (nrVertices - 2) * (nrVertices - 2) + 3 * nrVertices * 4 - 18); // se notes in lecture 6 
@@ -513,26 +429,26 @@ chunkChecker ChunkHandler::checkChunk(const glm::vec3& camPos)
 }
 
 /// <summary>
-/// Constructs a new chunk (with all LOD) and adds it together with the movement (chunkChecker) that triggered the generation to the render queue. The chunk mesh is not initiated so it can be multi-threaded.
+/// Constructs a new chunk and adds it together with the movement (chunkChecker) that triggered the generation to the render queue. The chunk mesh is not initiated so it can be multi-threaded.
 /// </summary>
 /// <param name="newPos"></param>
 /// <param name="nrVeritices"></param>
 /// <param name="_spacing"></param>
 /// <param name="id"></param>
 /// <param name="inside"></param>
-/// 
-/// unsigned int _nrVertices, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int _id
 void ChunkHandler::generateChunk(const std::pair<float, float>& newPos, unsigned int nrVeritices, float _spacing, unsigned int id, chunkChecker cc)
 {
-	// First create and render the lowest LOD
-	unsigned int lod = 16;
-	renderQ.push({ new Chunk{ nrVertices, lod, newPos.first, newPos.second, _spacing, id }, cc });
+	Chunk* chunk = new Chunk{ nrVertices, 1, newPos.first, newPos.second, _spacing, id };
+	//std::future<Chunk*> ret = std::async();
 
-	// Create other LOD after
-	for (lod /= 2; lod > 0; lod /= 2) {
-			lodQ.push(new Chunk{ nrVertices, lod, newPos.first, newPos.second, _spacing, id });
-	}
+	renderQ.push({ chunk, cc });
 }
+
+ChunkHandler::Chunk* ChunkHandler::Chunk::generateLOD(unsigned int nrVerticies, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int id) {
+	Chunk* chunkLOD = new Chunk{ nrVerticies, _lod, xpos, zpos, _spacing, id };
+	return chunkLOD;
+}
+
 
 /// <summary>
 /// Updates which chunks that are rendered based on camera position. New chunks are genereted by multi-threading.
@@ -709,17 +625,6 @@ void ChunkHandler::updateChunks(const glm::vec3& camPos)
 		default:
 			break;
 		}
-	}
-	
-	// Insert newly created lod chunks into correct lod-list.
-	while (!lodQ.empty()) {
-
-		std::lock_guard<std::mutex> lock(mu);	// Thread safe
-
-		Chunk* c = lodQ.front();
-		lodQ.pop();
-		c->bakeMeshes();
-		insertLOD(c);
 	}
 }
 

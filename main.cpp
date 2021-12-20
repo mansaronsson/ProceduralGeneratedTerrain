@@ -32,7 +32,7 @@ void printmat4(const glm::mat4& mat);
 //settings
 int constexpr gridSize{ 11 };
 int constexpr nrVertices{ 161 };
-float constexpr spacing{ 0.05 };
+float constexpr spacing{ 0.075 };
 
 const unsigned int SCREEN_WIDTH = 1600, SCREEN_HEIGHT = 900;
 

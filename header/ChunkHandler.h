@@ -113,11 +113,14 @@ private:
 
 		void draw(int _lod) {
 			if (drawChunk) {
-				if(_lod != lod && higherLod != nullptr){
-					higherLod->draw(_lod);
-				}
-				else {
+				if(_lod == lod)
 					mesh.draw(GL_TRIANGLES);
+				else
+				{
+					if(higherLod != nullptr)
+					{
+						higherLod->draw(_lod);
+					}
 				}
 			}
 		}
@@ -162,6 +165,8 @@ private:
 		/// <returns></returns>
 		std::pair<glm::vec3, glm::vec3> computePN(const glm::vec3& n) const;
 
+		Chunk* generateLOD(unsigned int nrVerticies, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int id);
+
 		unsigned int index(int w, int d) {
 			return w + nrVertices * d;
 		}
@@ -170,7 +175,8 @@ private:
 		unsigned int id;
 		unsigned int lod;
 		const unsigned int nrVertices;	//Number of vertices in chunk
-		Chunk* higherLod;
+
+
 
 	private:
 		//Helper variables, start pos x & z and spacing between vertices
@@ -183,6 +189,7 @@ private:
 
 		Mesh mesh;
 		BoundingBox boundingBox;
+		Chunk* higherLod;
 	};
 	/*End of chunk class*/
 
@@ -190,9 +197,6 @@ private:
 		return col + size * row;
 	}
 
-	void generateLOD(std::promise<Chunk*>&& p, unsigned int nrVerticies, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int id);
-	void initializeChunk(Chunk* c);
-	void insertLOD(Chunk* c, bool init = false);
 	void generateChunk(const std::pair<float, float>& newPos, unsigned int nrVeritices, float spacing, unsigned int id, chunkChecker cc = chunkChecker::inside);
 
 	/// <summary>
@@ -216,7 +220,6 @@ private:
 	std::vector<Chunk*> chunks;
 
 	using chunkInfo = std::tuple<Chunk*, chunkChecker>;
-	std::queue<chunkChecker> moveQ;
 	std::queue<chunkInfo> renderQ;
-	std::queue<Chunk*> lodQ;
+	std::queue<chunkChecker> moveQ;
 };
