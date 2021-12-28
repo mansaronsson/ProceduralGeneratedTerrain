@@ -14,6 +14,7 @@
 #include "header/CameraControl.h"
 #include "header/ChunkHandler.h"
 #include "header/CameraPlane.h"
+#include "header/CrystalMountains.h"
 
 
 void initialize();
@@ -30,7 +31,7 @@ void updateCamera2();
 void printmat4(const glm::mat4& mat);
 
 //settings
-int constexpr gridSize{ 11 };
+int constexpr gridSize{ 1 };
 int constexpr nrVertices{ 161 };
 float constexpr spacing{ 0.075 };
 
@@ -82,6 +83,7 @@ int main() {
     Shader myShader{ "shaders/vertex.vert", "shaders/fragment.frag" };
     Shader cameraShader{ "shaders/cameraVertex.vert", "shaders/cameraFragment.frag" };
     Shader boundingBoxShader{ "shaders/boundingBoxVertex.vert", "shaders/boundingBoxFragment.frag" };
+    Shader crystalShader{ "shaders/crystalVertex.vert", "shaders/crystalFragment.frag" };
 
     glm::mat4 perspective = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 200.0f);
     glm::mat4 perspective2 = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 100.0f);
@@ -108,6 +110,7 @@ int main() {
 
     //65
     ChunkHandler chandler{gridSize, nrVertices, spacing , 1.8f };   // (gridSize, nrVertices, spacing, yScale)
+    Crystal crys{ glm::vec3{ 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f } };
 
     //OpenGL render Settings
     glEnable(GL_DEPTH_TEST);
@@ -200,6 +203,13 @@ int main() {
         toggleCamera ? boundingBoxShader.setMat4("P", perspective) : boundingBoxShader.setMat4("P", perspective2);
         if(drawbb)
             chandler.drawBoundingBox();
+
+        /*** Draw crystal ***/
+        crystalShader.use();
+        crystalShader.setMat4("M", modelM);
+        toggleCamera ? crystalShader.setMat4("V", camera1) : crystalShader.setMat4("V", camera2);
+        toggleCamera ? crystalShader.setMat4("P", perspective) : crystalShader.setMat4("P", perspective2);
+        crys.draw();
 
         glfwSwapBuffers(window);
         glfwPollEvents();
