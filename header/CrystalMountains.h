@@ -10,12 +10,27 @@
 
 #include "Mesh.h"
 
-class Crystal {
+
+struct CrystalInfo {
+	// Gather all data about a chunk here
+};
+
+class CrystalChunk {
 public:
-	Crystal(glm::vec3 pos, glm::vec3 dir);
+	CrystalChunk(const glm::vec3& pos, const glm::vec3& dir);
 
 	void draw();
 
 private:
-	Mesh mesh;
+	class Crystal {
+	public:
+		Crystal(const glm::vec3& pos, const glm::vec3& dir);
+
+		void draw();
+
+	private:
+		Mesh mesh;
+	};
+
+	std::vector<Crystal*> crystals;
 };

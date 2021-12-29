@@ -1,17 +1,42 @@
 #include "../header/CrystalMountains.h"
 
 
-Crystal::Crystal(glm::vec3 pos, glm::vec3 dir) {
+CrystalChunk::CrystalChunk(const glm::vec3& pos, const glm::vec3& dir) {
+	
+	// 1-4
+	int nStems = 3;
+
+	for (int stem = 0; stem < nStems; stem++)
+	{
+
+		glm::vec3 stemDir = nStems == 1 ? dir : glm::normalize(dir + glm::cross(dir, glm::vec3{ 1.0f, 0.0f, 0.0f }));	// 45 deg lean from dir
+		if (nStems > 1) {
+			// Lean it 45 deg from dir and rotate around dir based on how many stems
+			stemDir = glm::rotate(stemDir, static_cast<float>(M_PI) * 2 * stem / nStems, dir);
+		}
+		crystals.push_back(new Crystal{pos, stemDir});
+	}
+}
+
+void CrystalChunk::draw() {
+	for (auto c : crystals) {
+		c->draw();
+	}
+}
+
+CrystalChunk::Crystal::Crystal(const glm::vec3& pos, const glm::vec3& dir) {
 
 	std::vector<Vertex> vertices;
 	std::vector<unsigned int> indices;
 	glm::vec3 color;
 
-	// 1-4
-	int nStems = 1;
 	// for each stem
-	float length = 5.0f;
-	float width = 1.0f;
+	float baseWidth = 1.0f;
+	float midWidth = 2.0f;
+
+	float midLength = 3.0f;
+	float topLength = 5.0f;
+
 	// 3-8
 	int nSides = 6;
 
@@ -20,24 +45,25 @@ Crystal::Crystal(glm::vec3 pos, glm::vec3 dir) {
 
 	glm::vec3 startAngle = glm::cross(dir, glm::vec3{ 1.0f, 0.0f, 0.0f });
 
-	for (int i = 0; i < nSides; ++i) {
+	for (int side = 0; side < nSides; ++side) {
 
-		Vertex v{ pos + startAngle * width / 2.0f };
-		v.position = glm::rotate(v.position, 2 * static_cast<float>(M_PI) * i / nSides, dir);
+		Vertex vb{ pos + startAngle * baseWidth / 2.0f };
+		Vertex vm{ pos + startAngle * midWidth / 2.0f + dir * midLength };
+		vb.position = glm::rotate(vb.position, static_cast<float>(M_PI) * 2 * side / nSides, dir);
+		vm.position = glm::rotate(vm.position, static_cast<float>(M_PI) * 2 * side / nSides, dir);
 
 		// base
-		vertices.push_back(v);
-		vertices.push_back(v);
-		vertices.push_back(v);
+		vertices.push_back(vb);
+		vertices.push_back(vb);
+		vertices.push_back(vb);
 
-		// top
-		v.position += dir * length * 0.8f;
-		vertices.push_back(v);
-		vertices.push_back(v);
-		vertices.push_back(v);
+		// mid
+		vertices.push_back(vm);
+		vertices.push_back(vm);
+		vertices.push_back(vm);
 	
 		// end
-		vertices.push_back({ pos + dir * length });
+		vertices.push_back({ pos + dir * topLength });
 	}
 
 	// normals
@@ -97,7 +123,7 @@ Crystal::Crystal(glm::vec3 pos, glm::vec3 dir) {
 	mesh = Mesh{ vertices, indices };
 }
 
-void Crystal::draw() {
+void CrystalChunk::Crystal::draw() {
 	mesh.draw(GL_TRIANGLES);
 }
 

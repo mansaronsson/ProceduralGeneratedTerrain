@@ -110,7 +110,7 @@ int main() {
 
     //65
     ChunkHandler chandler{gridSize, nrVertices, spacing , 1.8f };   // (gridSize, nrVertices, spacing, yScale)
-    Crystal crys{ glm::vec3{ 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f } };
+    CrystalChunk crys{ glm::vec3{ 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f } };
 
     //OpenGL render Settings
     glEnable(GL_DEPTH_TEST);
