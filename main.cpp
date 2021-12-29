@@ -30,9 +30,9 @@ void updateCamera2();
 void printmat4(const glm::mat4& mat);
 
 //settings
-int constexpr gridSize{ 11 };
+int constexpr gridSize{ 17 };
 int constexpr nrVertices{ 161 };
-float constexpr spacing{ 0.075 };
+float constexpr spacing{ 0.075f };
 
 const unsigned int SCREEN_WIDTH = 1600, SCREEN_HEIGHT = 900;
 
@@ -47,7 +47,7 @@ int lod = 1;
 
 float deltaTime = 0.0f, lastFrame = 0.0f;
 
-bool cull = false, wireFrame = false, drawbb = false;
+bool cull = false, useLOD = true, wireFrame = false, drawbb = false;
 
 int main() {
 
@@ -83,7 +83,7 @@ int main() {
     Shader cameraShader{ "shaders/cameraVertex.vert", "shaders/cameraFragment.frag" };
     Shader boundingBoxShader{ "shaders/boundingBoxVertex.vert", "shaders/boundingBoxFragment.frag" };
 
-    glm::mat4 perspective = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 200.0f);
+    glm::mat4 perspective = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 1.0f, 70.0f);
     glm::mat4 perspective2 = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 100.0f);
 
     /*** Always use the larger perspective to render camera frustum, otherwise it risk being culled in viewport ***/
@@ -186,11 +186,17 @@ int main() {
 
         if (wireFrame) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            chandler.draw(camera1Control.getCameraPosition());
+            if (useLOD)
+                chandler.draw(camera1Control.getCameraPosition());
+            else
+                chandler.drawWithoutLOD();
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
         else {
-            chandler.draw(camera1Control.getCameraPosition());
+            if (useLOD)
+                chandler.draw(camera1Control.getCameraPosition());
+            else
+                chandler.drawWithoutLOD();
         }
 
         /*** Draw bounding boxes around chunks  ***/
@@ -333,15 +339,11 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     if (key == GLFW_KEY_B && action == GLFW_PRESS) {
         drawbb = !drawbb;
     }
-    if(key == GLFW_KEY_1 && action == GLFW_PRESS) {
-        lod = 1;
+    if (key == GLFW_KEY_L && action == GLFW_PRESS) {
+        useLOD = !useLOD;
     }
-    if(key == GLFW_KEY_2 && action == GLFW_PRESS) {
-        lod = 2;
-    }
-    if(key == GLFW_KEY_3 && action == GLFW_PRESS) {
-        lod = 4;
-    }    
+
+  
 }
 
 void mouse_position_callback(GLFWwindow* window, double xpos, double ypos) {

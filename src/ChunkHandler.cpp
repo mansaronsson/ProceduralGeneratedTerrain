@@ -173,6 +173,10 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 				vertices.push_back({ pos });
 			}
 			vertices.back().color = color;
+			if (depth == 0 || depth == nrVertices - 1 || width == 0 || width == nrVertices - 1) //edges of grid ie. skirts
+			{
+				vertices.back().color = glm::vec3{ 1.0f, 0.0f, 1.0f };
+			}
 
 			//add indices to create triangle list
 			if (width < nrVertices - 1 && depth < nrVertices - 1) {

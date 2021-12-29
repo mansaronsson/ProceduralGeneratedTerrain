@@ -36,11 +36,17 @@ public:
 	void draw(const glm::vec3& camposition) {
 
 		//auto p0 = currentChunk->getPostition(currentChunk->index(currentChunk->nrVertices / 2, currentChunk->nrVertices / 2));
-		for (auto chunk : chunks)	
+		for (Chunk* chunk : chunks)	
 		{
 			auto p1 = chunk->getPostition(chunk->index(chunk->nrVertices / 2, chunk->nrVertices / 2));
 			int lod = computeLOD(camposition, p1);
 			chunk->draw(lod);
+		}
+	}
+
+	void drawWithoutLOD() {
+		for (Chunk* chunk : chunks) {
+			chunk->draw(1);
 		}
 	}
 
@@ -133,6 +139,7 @@ private:
 
 		/// <summary>
 		/// Create noisy point at position x,z computes height y
+		/// https://thebookofshaders.com/13/
 		/// TODO: make noise dependent on variables
 		/// </summary>
 		glm::vec3 createPointWithNoise(float x, float z, float* minY = nullptr, float* maxY = nullptr) const;
