@@ -72,6 +72,9 @@ public:
 		return 8;
 	}
 
+	/// <summary>
+	/// return vec3 position at width, depth x,z
+	/// </summary>
 	glm::vec3 getPointOnTerrain(float x, float z) {
 		return currentChunk->createPointWithNoise(x, z);
 	}

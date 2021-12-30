@@ -17,7 +17,7 @@ ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, flo
 			chunks.push_back(new Chunk{ nrVertices, lod, xpos, zpos, spacing, index(col, row, gridSize) });
 			chunks.back()->bakeMeshes();
 
-			//Create trees in new chunk using callback function
+			//Create trees in new chunk using callback function, p1 - p2 creates bounding grid 
 			auto chunk = chunks.back();
 			auto p1 = chunk->getPostition(0); //first vertex 
 			auto p2 = chunk->getPostition(chunk->index(chunk->nrVertices - 1, chunk->nrVertices - 1)); //last vertex
@@ -354,33 +354,32 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 			vertices[index(width, depth)].normal = normal;
 		}
 	}
+	/*Temporary set color according to angle between normal and ground*/
 	glm::vec3 ground{ 0.0f, 1.0f, 0.0f };
 	for (Vertex& vert : vertices) {
-		glm::vec3 p = vert.position;
-		float offset = 0.01f;
-		auto p1 = createPointWithNoise(p.x + offset, p.z);
-		auto p2 = createPointWithNoise(p.x + offset, p.z + offset);
-		glm::vec3 e1 = p1 - p;
-		glm::vec3 e2 = p2 - p;
-		glm::vec3 normal = glm::normalize(glm::cross(e2, e1));
-		std::cout << "new normal " << glm::to_string(normal) << '\n';
-		float angle2 = std::acosf(glm::dot(normal, ground)) * 180 / 3.14f;
+		//glm::vec3 p = vert.position;
+		//float offset = 0.01f;
+		//auto p1 = createPointWithNoise(p.x - offset, p.z - offset);
+		//auto p2 = createPointWithNoise(p.x + offset, p.z - offset);
+		//auto p3 = createPointWithNoise(p.x, p.z + offset);
 
-
+		//glm::vec3 e1 = p2 - p1;
+		//glm::vec3 e2 = p3 - p1;
+		//glm::vec3 normal = glm::normalize(glm::cross(e2, e1));
+		//float angle2 = std::acosf(glm::dot(normal, ground)) * 180 / 3.14f;
 
 		float angle = std::acosf(glm::dot(vert.normal, ground)) * 180 / 3.14f;
-		std::cout << "normal " << glm::to_string(vert.normal) << "\n";
-
-		//std::cout << "difference " glm::to_string(vert.normal - normal)) << 
-		std::cout << "new angle " << angle2 << '\n';
-		std::cout << " angle " << angle << '\n' << std::endl;
+		//std::cout << "new normal " << glm::to_string(normal) << '\n';
+		//std::cout << "normal " << glm::to_string(vert.normal) << "\n"
+		////std::cout << "difference " glm::to_string(vert.normal - normal)) << std::endl;
+		//std::cout << "new angle " << angle2 << '\n';
+		//std::cout << " angle " << angle << '\n' << std::endl;
 		if (angle < 40)
 		{
 			vert.color = glm::vec3{ 0.0f, 1.0f, 0.0f };
 		}
 		else
 			vert.color = glm::vec3{ 1.0f, 0.0f, 0.0f };
-
 	}
 	//mesh = Mesh{ vertices, indices }; 
 

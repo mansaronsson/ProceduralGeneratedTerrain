@@ -236,14 +236,6 @@ int main() {
     *****************/
 
     float timer{ 0.0f };
-
-
-    //Make trees 
-    //int nroftrees = 5;
-    //treeShader.use();
-    //for (int i = 0; i < nroftrees; i++) {
-    //    trees.push_back(MakeTree(myShader.ID, chandler));
-    //}
     
     while (!glfwWindowShouldClose(window))
     {
@@ -318,6 +310,7 @@ int main() {
         else {
             chandler.draw();
         }
+        //Draw trees
         treeShader.use();
         treeShader.setMat4("M", modelM);
         toggleCamera ? treeShader.setMat4("V", camera1) : treeShader.setMat4("V", camera2);
