@@ -38,13 +38,11 @@ float constexpr spacing{ 0.075 };
 const unsigned int SCREEN_WIDTH = 1600, SCREEN_HEIGHT = 900;
 
 glm::mat4 camera2 = glm::mat4(1.0f);
-
 bool toggleCamera{ true };
 
 CameraControl camera1Control{ glm::vec3{ 0.0f, 1.0f, 0.0f } };
 
 int lod = 1;
-
 
 float deltaTime = 0.0f, lastFrame = 0.0f;
 
@@ -109,8 +107,8 @@ int main() {
     Mesh camera1Mesh{ campoints, camIndices };
 
     //65
-    ChunkHandler chandler{gridSize, nrVertices, spacing , 1.8f };   // (gridSize, nrVertices, spacing, yScale)
-    CrystalChunk crys{ glm::vec3{ 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f } };
+    ChunkHandler chandler{gridSize, nrVertices, spacing};   // (gridSize, nrVertices, spacing)
+    //CrystalChunk crys{ glm::vec3{ 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f } };
 
     //OpenGL render Settings
     glEnable(GL_DEPTH_TEST);
@@ -181,11 +179,20 @@ int main() {
         myShader.setMat4("M", modelM);
         toggleCamera ? myShader.setMat4("V", camera1) : myShader.setMat4("V", camera2);
         toggleCamera ? myShader.setMat4("P", perspective) : myShader.setMat4("P", perspective2);
-        //Draw terrain color or distance color
-        if(glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS)
-            myShader.setBool("colorDistance", true);
-        if(glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS)
+        //Draw terrain color, distance color or biome color
+        if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
             myShader.setBool("colorDistance", false);
+            myShader.setBool("biomeColor", true);
+
+        }
+        if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS) {
+            myShader.setBool("colorDistance", true);
+            myShader.setBool("biomeColor", false);
+        }
+        if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS) {
+            myShader.setBool("colorDistance", false);
+            myShader.setBool("biomeColor", false);
+        }
 
         if (wireFrame) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -209,7 +216,7 @@ int main() {
         crystalShader.setMat4("M", modelM);
         toggleCamera ? crystalShader.setMat4("V", camera1) : crystalShader.setMat4("V", camera2);
         toggleCamera ? crystalShader.setMat4("P", perspective) : crystalShader.setMat4("P", perspective2);
-        crys.draw();
+        //crys.draw();
 
         glfwSwapBuffers(window);
         glfwPollEvents();

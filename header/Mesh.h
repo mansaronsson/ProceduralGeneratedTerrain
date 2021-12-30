@@ -9,8 +9,9 @@
 struct Vertex
 {
 	glm::vec3 position;
-	glm::vec3 normal = glm::vec3{ 0.0f, 1.0f, 0.0f };
-	glm::vec3 color = glm::vec3{ 0.0f };
+	glm::vec3 normal{ 0.0f, 1.0f, 0.0f };
+	glm::vec3 lodColor{ 0.0f };
+	int biome{ 0 };
 };
 
 class Mesh

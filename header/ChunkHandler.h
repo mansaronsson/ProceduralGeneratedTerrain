@@ -11,6 +11,11 @@
 #include <mutex>
 #include <future>
 
+
+enum Biome {
+	normal, crystalMountain
+};
+
 enum chunkChecker {
 	inside, up, down, left, right
 };
@@ -24,7 +29,7 @@ public:
 	/// <param name="nrVertices">number of vertecies per chunk excluding skirts</param>
 	/// <param name="spacing">distance between vertices</param>
 	/// <param name="yscale">how much to scale in the y direction</param>
-	ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, float _spacing, float _yscale);
+	ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, float _spacing);
 
 
 	void cullTerrain(bool cull) {
@@ -135,7 +140,7 @@ private:
 		/// Create noisy point at position x,z computes height y
 		/// TODO: make noise dependent on variables
 		/// </summary>
-		glm::vec3 createPointWithNoise(float x, float z, float* minY = nullptr, float* maxY = nullptr) const;
+		glm::vec3 createPointWithNoise(Biome biome, float x, float z, float* minY = nullptr, float* maxY = nullptr) const;
 		/// <summary>
 		/// Helper function computes x & z position in grid
 		/// </summary>
@@ -151,9 +156,11 @@ private:
 		/// </summary>
 		/// <param name="p">: neighboring poins: ne, n, nw, w, sw, s, se, e </param>
 		/// <param name="v0">: starting point </param>
-		glm::vec3 computeNormal(const std::vector<glm::vec3>& p,const glm::vec3& v0) const;
+		glm::vec3 computeNormal(const std::vector<glm::vec3>& p, const glm::vec3& v0) const;
 
 		glm::vec3 setColorFromLOD();
+
+		Biome getBiome(float xPos, float zPos) const;
 
 		chunkChecker checkMovement(const glm::vec3& pos);
 
@@ -212,7 +219,6 @@ private:
 	const unsigned int gridSize;
 	const unsigned int nrVertices;
 	const float spacing;
-	const float yscale;
 
 	int renderCounter{ static_cast<int>(gridSize) };
 

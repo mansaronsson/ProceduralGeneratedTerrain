@@ -4,16 +4,23 @@
 CrystalChunk::CrystalChunk(const glm::vec3& pos, const glm::vec3& dir) {
 	
 	// 1-4
-	int nStems = 3;
+	int nStems = 4;
 
 	for (int stem = 0; stem < nStems; stem++)
 	{
-
-		glm::vec3 stemDir = nStems == 1 ? dir : glm::normalize(dir + glm::cross(dir, glm::vec3{ 1.0f, 0.0f, 0.0f }));	// 45 deg lean from dir
-		if (nStems > 1) {
-			// Lean it 45 deg from dir and rotate around dir based on how many stems
+		glm::vec3 stemDir;
+		if (nStems == 1 || (nStems > 3 && stem == 0)) {
+			stemDir = dir;
+		}
+		else if (nStems > 3) {
+			stemDir = glm::normalize(dir + glm::cross(dir, glm::vec3{ 1.0f, 0.0f, 0.0f }));
+			stemDir = glm::rotate(stemDir, static_cast<float>(M_PI) * 2 * (stem-1) / (nStems-1), dir);
+		}
+		else {
+			stemDir = glm::normalize(dir + glm::cross(dir, glm::vec3{ 1.0f, 0.0f, 0.0f }));
 			stemDir = glm::rotate(stemDir, static_cast<float>(M_PI) * 2 * stem / nStems, dir);
 		}
+
 		crystals.push_back(new Crystal{pos, stemDir});
 	}
 }

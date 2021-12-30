@@ -1,8 +1,9 @@
 #include "..\header\ChunkHandler.h"
 #include <iostream>
 
-ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, float _spacing, float _yscale)
-	: gridSize{ (_gridSize % 2 == 0 ? (_gridSize + 1) : _gridSize) }, nrVertices{ _nrVertices }, spacing{ _spacing }, yscale{ _yscale }, currentChunk{ nullptr }
+
+ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, float _spacing)
+	: gridSize{ (_gridSize % 2 == 0 ? (_gridSize + 1) : _gridSize) }, nrVertices{ _nrVertices }, spacing{ _spacing }, currentChunk{ nullptr }
 {
 	//unsigned int size = nrVertices; //two extra rows / columns for the skirts
 	unsigned int lod = 1;
@@ -21,7 +22,16 @@ ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, flo
 	currentChunk = chunks[gridSize * gridSize / 2];
 }
  
-glm::vec3 ChunkHandler::Chunk::createPointWithNoise(float x, float z, float* minY, float* maxY ) const {
+/// <summary>
+/// Finds the correct randomized offset for the vertex point based on its position and biome.
+/// </summary>
+/// <param name="biome"></param>
+/// <param name="x"></param>
+/// <param name="z"></param>
+/// <param name="minY"></param>
+/// <param name="maxY"></param>
+/// <returns>vec3 with the same x- and z-position as the input variables but with randomized y (height)</returns>
+glm::vec3 ChunkHandler::Chunk::createPointWithNoise(Biome biome, float x, float z, float* minY, float* maxY ) const {
 	/*** Apply noise to the height ie. y component using fbm ***/
 	int octaves = 6;
 	float noiseSum = 0.0f;
@@ -60,7 +70,8 @@ std::pair<float, float> ChunkHandler::Chunk::computeXZpos(int width, int depth) 
 
 glm::vec3 ChunkHandler::Chunk::createFakeVertex(int width, int depth) const {
 	auto [x, z] = computeXZpos(width, depth);
-	return createPointWithNoise(x, z);
+	Biome biome = getBiome(x, z);
+	return createPointWithNoise(biome, x, z);
 }
 
 glm::vec3 ChunkHandler::Chunk::computeNormal(const std::vector<glm::vec3>& p,const glm::vec3& v0) const {
@@ -121,6 +132,13 @@ glm::vec3 ChunkHandler::Chunk::setColorFromLOD() {
 	}
 }
 
+Biome ChunkHandler::Chunk::getBiome(float xPos, float zPos) const
+{
+	//float temperature = ...
+	//float humidity = ...
+
+}
+
 ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int _id) :
 	lod{ _lod }, nrVertices { (_nrVertices - 1) / _lod + 3 }, XPOS{ xpos }, ZPOS{ zpos }, SPACING{ _spacing * _lod }, id{ _id } {
 	int MAXLOD = 16;
@@ -161,6 +179,8 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 				x = xpos + (width - 2) * SPACING;
 			}
 
+			Biome biome = getBiome(x, z);
+
 			if (depth == 0 || depth == nrVertices - 1 || width == 0 || width == nrVertices - 1) //edges of grid ie. skirts
 			{
 				float skirtDepth = -3.0f;
@@ -169,10 +189,12 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 			}
 			else //Non edges compute noise value for the y-component
 			{
-				auto pos = createPointWithNoise(x, z, &minY, &maxY);
+				auto pos = createPointWithNoise(biome, x, z, &minY, &maxY);
 				vertices.push_back({ pos });
 			}
-			vertices.back().color = color;
+
+			vertices.back().lodColor = color;
+			vertices.back().biome = biome;
 
 			//add indices to create triangle list
 			if (width < nrVertices - 1 && depth < nrVertices - 1) {
