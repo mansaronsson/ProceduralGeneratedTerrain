@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Engberg"
+  given-names: "Andreas"
+- family-names: "Aronsson"
+  given-names: "Måns"
+title: "ProceduralGeneratedTerrain"
+version: 1.0.0
+date-released: 2021-12-26
+url: "https://github.com/engbergandreas/ProceduralGeneratedTerrain"

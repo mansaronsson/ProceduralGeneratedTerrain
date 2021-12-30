@@ -33,7 +33,7 @@ glm::vec3 ChunkHandler::Chunk::createPointWithNoise(float x, float z, float* min
 	int octaves = 6;
 	float noiseSum = 0.0f;
 	float seed = 0.1f;
-	float amplitude = 3.0f;
+	float amplitude = 6.0f;
 	float gain = 0.5; //How much to increase / decrease each octave
 	float lacunarity = 2.0; //How much to increase / decrease frequency each octave ie. how big steps to take in the noise space
 	float freq = 0.09f;
@@ -46,6 +46,9 @@ glm::vec3 ChunkHandler::Chunk::createPointWithNoise(float x, float z, float* min
 	}
 
 	float noiseY = noiseSum;
+	float groundlevel = -1.51f;
+	if (noiseY < groundlevel)
+		noiseY = groundlevel;
 
 	glm::vec3 pos{ x, noiseY, z };
 
@@ -86,10 +89,10 @@ glm::vec3 ChunkHandler::Chunk::computeNormal(const std::vector<glm::vec3>& p,con
 	e2 = se - v0;
 	e3 = e - v0;
 	normal += glm::cross(e1, e2);
-	normal += glm::cross(e3, e1);
+	normal += glm::cross(e2, e3);
 	//t5
 	e1 = e - v0;
-	e2 = ne - v0;
+	e2 = n - v0;
 	normal += glm::cross(e1, e2);
 	//Divide by the 6 normals we summed together and normalize vector 
 	normal /= 6;
@@ -110,13 +113,15 @@ glm::vec3 ChunkHandler::Chunk::setColorFromLOD() {
 	switch (lod)
 	{
 	case 1:
-		return glm::vec3{ 0.2f, 1.0f, 0.2f };
+		return glm::vec3{ 0.1f, 0.6f, 0.1f }; //green
 	case 2:
-		return glm::vec3{ 1.0f, 1.0f, 0.0f };
+		return glm::vec3{ 0.5f, 1.0f, 0.0f }; //yellowgreenish
 	case 4: 
-		return glm::vec3{ 1.0f, 0.5f, 0.0f };
+		return glm::vec3{ 1.0f, 1.0f, 0.0f }; //yellow
 	case 8:
-		return glm::vec3{ 1.0f, 0.2f, 0.2f };
+		return glm::vec3{ 1.0f, 0.5f, 0.0f }; //orange
+	case 16:
+		return glm::vec3{ 1.0f, 0.2f, 0.2f }; //red
 	default:
 		return glm::vec3{ 0.7f, 0.7f, 0.7f };
 		break;
@@ -125,8 +130,7 @@ glm::vec3 ChunkHandler::Chunk::setColorFromLOD() {
 
 ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int _id) :
 	lod{ _lod }, nrVertices { (_nrVertices - 1) / _lod + 3 }, XPOS{ xpos }, ZPOS{ zpos }, SPACING{ _spacing * _lod }, id{ _id } {
-
-	int MAXLOD = 8;
+	int MAXLOD = 16;
 	unsigned int newLod = _lod * 2;
 	if (newLod <= MAXLOD)
 		higherLod = new Chunk{ _nrVertices, newLod, xpos, zpos, _spacing, 0 };
@@ -175,7 +179,12 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 				auto pos = createPointWithNoise(x, z, &minY, &maxY);
 				vertices.push_back({ pos });
 			}
-			//vertices.back().color = color;
+			//Set vertex color based on distance
+			vertices.back().color = color;
+			if (depth == 0 || depth == nrVertices - 1 || width == 0 || width == nrVertices - 1) //edges of grid ie. skirts
+			{
+				vertices.back().color = glm::vec3{ 1.0f, 0.0f, 1.0f };
+			}
 
 			//add indices to create triangle list
 			if (width < nrVertices - 1 && depth < nrVertices - 1) {
@@ -212,6 +221,8 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 		glm::vec3 v0 = vertices[index(width, depth)].position; //current vertex
 		glm::vec3 ne, n, nw, w, sw, s, se, e;
 		//Find all surrounding vertices 
+
+		//NE och SW beh�vs ej
 		s = vertices[index(width, depth + 1)].position;
 		nw = createFakeVertex(width - 1, depth - 1);
 		n = createFakeVertex(width, depth - 1);
@@ -243,7 +254,7 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 		}
 		if (width == nrVertices -2) {
 			vertices[index(width + 1, depth - 1)].normal = normal; //ne skirt
-			vertices[index(width - 1, depth)].normal = normal; //e skirt
+			vertices[index(width + 1, depth)].normal = normal; //e skirt
 		}
 	} //End of top row
 
@@ -285,7 +296,7 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 		}
 		if (width == nrVertices - 2) {
 			vertices[index(width + 1, depth + 1)].normal = normal; //se skirt
-			vertices[index(width - 1, depth)].normal = normal; //e skirt
+			vertices[index(width + 1, depth)].normal = normal; //e skirt
 		}
 	}//End of bottom row
 

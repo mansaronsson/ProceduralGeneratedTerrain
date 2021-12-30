@@ -31,14 +31,17 @@ void updateCamera2();
 void printmat4(const glm::mat4& mat);
 
 //settings
-int constexpr gridSize{ 3 };
+int constexpr gridSize{ 17 };
+int constexpr nrVertices{ 161 };
+float constexpr spacing{ 0.075f };
 
 const unsigned int SCREEN_WIDTH = 800, SCREEN_HEIGHT = 600;
+
 glm::mat4 camera2 = glm::mat4(1.0f);
 bool toggleCamera{ true }; //Toggles between camera 1 and 2 
 CameraControl camera1Control{ glm::vec3{ 0.0f, 1.0f, 0.0f } };
 float deltaTime = 0.0f, lastFrame = 0.0f;
-bool cull = false, wireFrame = false, drawbb = false;
+bool cull = false, useLOD = true, wireFrame = false, drawbb = false;
 
 
 void MakeCylinderAlt(int aSlices, float height, float topwidth, float bottomwidth)
@@ -199,7 +202,7 @@ int main() {
     Shader boundingBoxShader{ "shaders/boundingBoxVertex.vert", "shaders/boundingBoxFragment.frag" };
     Shader treeShader{ "shaders/treeVertex.vert", "shaders/treeFragment.frag" };
 
-    glm::mat4 perspective = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 30.0f);
+    glm::mat4 perspective = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 1.0f, 70.0f);
     glm::mat4 perspective2 = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 100.0f);
 
     /*** Always use the larger perspective to render camera frustum, otherwise it risk being culled in viewport ***/
@@ -225,8 +228,8 @@ int main() {
     std::vector<std::pair<GLuint, int>> trees;
 
     TreeGenerator treeGenerator{ treeShader.ID, trees };
-    ChunkHandler chandler{gridSize, 65, 0.1f , 1.8f , treeGenerator};   // (gridSize, nrVertices, spacing, yScale)
-
+    ChunkHandler chandler{gridSize, nrVertices, spacing , 1.8f , treeGenerator};   // (gridSize, nrVertices, spacing, yScale)
+    
     //OpenGL render Settings
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
@@ -296,21 +299,27 @@ int main() {
         myShader.setMat4("M", modelM);
         toggleCamera ? myShader.setMat4("V", camera1) : myShader.setMat4("V", camera2);
         toggleCamera ? myShader.setMat4("P", perspective) : myShader.setMat4("P", perspective2);
-
+        //Draw terrain color or distance color
         if(glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS)
             myShader.setBool("colorDistance", true);
         if(glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS)
             myShader.setBool("colorDistance", false);
+
         if (wireFrame) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            chandler.draw();
+            if (useLOD)
+                chandler.draw(camera1Control.getCameraPosition());
+            else
+                chandler.drawWithoutLOD();
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
         }
         else {
-            chandler.draw();
+            if (useLOD)
+                chandler.draw(camera1Control.getCameraPosition());
+            else
+                chandler.drawWithoutLOD();
         }
-        //Draw trees
+        /*** Draw trees ***/
         treeShader.use();
         treeShader.setMat4("M", modelM);
         toggleCamera ? treeShader.setMat4("V", camera1) : treeShader.setMat4("V", camera2);
@@ -320,25 +329,13 @@ int main() {
             glDrawArrays(GL_TRIANGLES, 0, trees[i].second);
         }
 
-        /*** Draw bounding boxes around  ***/
+        /*** Draw bounding boxes around chunks  ***/
         boundingBoxShader.use();
         boundingBoxShader.setMat4("M", modelM);
         toggleCamera ? boundingBoxShader.setMat4("V", camera1) : boundingBoxShader.setMat4("V", camera2);
         toggleCamera ? boundingBoxShader.setMat4("P", perspective) : boundingBoxShader.setMat4("P", perspective2);
         if(drawbb)
             chandler.drawBoundingBox();
-
-        //if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
-        //    //printmat4(invproj);
-        //    //std::cout << '\n';
-        //    for (int i = 0; i < campoints.size(); ++i) {
-        //        glm::vec4 p = (invproj) * glm::vec4(campoints[i].position, 1.0f);
-        //        glm::vec3 c = glm::vec3{ p.x / p.w, p.y / p.w, p.z / p.w };
-        //        //std::cout << "point " << i+1 << ": "  << c.x << " " << c.y << " " << c.z << '\n';
-        //    }
-        //    //std::cout << '\n';
-
-        //}
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -471,7 +468,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     }
     if (key == GLFW_KEY_B && action == GLFW_PRESS) {
         drawbb = !drawbb;
-    }  
+    }
+    if (key == GLFW_KEY_L && action == GLFW_PRESS) {
+        useLOD = !useLOD;
+    }
 }
 
 void mouse_position_callback(GLFWwindow* window, double xpos, double ypos) {
