@@ -3,18 +3,18 @@
 
 
 ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, float _spacing)
-	: gridSize{ (_gridSize % 2 == 0 ? (_gridSize + 1) : _gridSize) }, nrVertices{ _nrVertices }, spacing{ _spacing }, currentChunk{ nullptr }
+	: gridSize{ (_gridSize % 2 == 0 ? (_gridSize + 1) : _gridSize) }, nrVertices{ _nrVertices }, spacing{ _spacing }, currentChunk{ nullptr }, m_biomeMap{ 0.0f, 0.0f, gridSize, (nrVertices - 1) * spacing, 8 }
 {
 	//unsigned int size = nrVertices; //two extra rows / columns for the skirts
 	unsigned int lod = 1;
-	float width = (nrVertices - 1) * spacing; //width of 1 chunk, -3 due to extra skirts
+	float width = (nrVertices - 1) * spacing; //width of 1 chunk, -1 due to extra skirts
 
 	for (int row = 0; row < gridSize; ++row) {
 		float zpos = -width * (static_cast<float>(gridSize) / 2.0f) + row * width;
 		for (int col = 0; col < gridSize; ++col) {
 			float xpos = -width * (static_cast<float>(gridSize) / 2.0f) + col * width;
 
-			chunks.push_back(new Chunk{ nrVertices, lod, xpos, zpos, spacing, index(col, row, gridSize) });
+			chunks.push_back(new Chunk{ nrVertices, lod, xpos, zpos, spacing, index(col, row, gridSize), &m_biomeMap });
 			chunks.back()->bakeMeshes();
 
 		}
@@ -31,25 +31,80 @@ ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, flo
 /// <param name="minY"></param>
 /// <param name="maxY"></param>
 /// <returns>vec3 with the same x- and z-position as the input variables but with randomized y (height)</returns>
-glm::vec3 ChunkHandler::Chunk::createPointWithNoise(Biome biome, float x, float z, float* minY, float* maxY ) const {
-	/*** Apply noise to the height ie. y component using fbm ***/
-	int octaves = 6;
-	float noiseSum = 0.0f;
-	float seed = 0.1f;
-	float amplitude = 6.0f;
-	float gain = 0.5; //How much to increase / decrease each octave
-	float lacunarity = 2.0; //How much to increase / decrease frequency each octave ie. how big steps to take in the noise space
-	float freq = 0.09f;
+glm::vec3 ChunkHandler::Chunk::createPointWithNoise(const std::vector<unsigned short>& biomeNeighbours, float x, float z, float* minY, float* maxY ) const {
+	/*** Apply noise to the height i.e. y component using fbm depending on biome ***/
 
-	//Add noise from all octaves
+	float seed = 5.721;
+
+	/* Settings change depending on biome */
+	// gain: How much to increase / decrease each octave
+	// lacunarity: How much to increase / decrease frequency each octave i.e. how big steps to take in the noise space
+
+	// Desert settings
+	float desert_octaves = 2;
+	float desert_noiseSum = 5.0f;
+	float desert_amplitude = 2.0f;
+	float desert_gain = 0.6f;
+	float desert_lacunarity = 2.0f;
+	float desert_freq = 0.04f;
+	float desert_groundlevel = -1.51f;
+
+	// Plains settings
+	float plains_octaves = 4;
+	float plains_noiseSum = 4.0f;
+	float plains_amplitude = 4.0f;
+	float plains_gain = 0.3;
+	float plains_lacunarity = 2.0;
+	float plains_freq = 0.02f;
+	float plains_groundlevel = -1.51f;
+
+	// crystalMountain settings
+	float crystal_octaves = 10;
+	float crystal_noiseSum = 25.0f;
+	float crystal_amplitude = 30.0f;
+	float crystal_gain = 0.5f;
+	float crystal_lacunarity = 3.0f;
+	float crystal_freq = 0.0021f;
+	float crystal_groundlevel = -1.51f;
+
+	// Biome interpolation
+	float nNeighbours = biomeNeighbours[desert] + biomeNeighbours[plains] + biomeNeighbours[crystalMountain];
+	float desert_weight = biomeNeighbours[desert] / nNeighbours;
+	float plains_weight = biomeNeighbours[plains] / nNeighbours;
+	float crystal_weight = biomeNeighbours[crystalMountain] / nNeighbours;
+
+	int octaves = static_cast<int>(desert_weight * desert_octaves + plains_weight * plains_octaves + crystal_weight * crystal_octaves);
+	
+	float amplitude = desert_weight * desert_amplitude + plains_weight * plains_amplitude + crystal_weight * crystal_amplitude;
+	float gain = desert_weight * desert_gain + plains_weight * plains_gain + crystal_weight * crystal_gain;
+	int lacunarity = static_cast<int>(desert_weight * desert_lacunarity + plains_weight * plains_lacunarity + crystal_weight * crystal_lacunarity);
+	float freq = desert_weight * desert_freq + plains_weight * plains_freq + crystal_weight * crystal_freq;
+	float groundlevel = desert_weight * desert_groundlevel + plains_weight * plains_groundlevel + crystal_weight * crystal_groundlevel;
+
+
 	for (int i = 0; i < octaves; ++i) {
-		noiseSum += amplitude * glm::perlin(glm::vec3((x + 1) * freq, (z + 1) * freq, seed));
-		freq *= lacunarity;
-		amplitude *= gain;
+		if (desert_weight > 0.001) {
+			desert_noiseSum += desert_amplitude * glm::simplex(glm::vec3((x + 1) * desert_freq, (z + 1) * desert_freq, seed));
+			desert_freq *= desert_lacunarity;
+			desert_amplitude *= desert_gain;
+		}
+
+		if (plains_weight > 0.001) {
+			plains_noiseSum += plains_amplitude * glm::simplex(glm::vec3((x + 1) * plains_freq, (z + 1) * plains_freq, seed));
+			plains_freq *= plains_lacunarity;
+			plains_amplitude *= plains_gain;
+		}
+
+		if (crystal_weight > 0.001) {
+			crystal_noiseSum += crystal_amplitude * glm::simplex(glm::vec3((x + 1) * crystal_freq, (z + 1) * crystal_freq, seed));
+			crystal_freq *= crystal_lacunarity;
+			crystal_amplitude *= crystal_gain;
+		}
 	}
 
+	float noiseSum = desert_weight * desert_noiseSum + plains_weight * plains_noiseSum + crystal_weight * crystal_noiseSum;
+
 	float noiseY = noiseSum;
-	float groundlevel = -1.51f;
 	if (noiseY < groundlevel)
 		noiseY = groundlevel;
 
@@ -70,8 +125,8 @@ std::pair<float, float> ChunkHandler::Chunk::computeXZpos(int width, int depth) 
 
 glm::vec3 ChunkHandler::Chunk::createFakeVertex(int width, int depth) const {
 	auto [x, z] = computeXZpos(width, depth);
-	Biome biome = getBiome(x, z);
-	return createPointWithNoise(biome, x, z);
+	std::vector<unsigned short> biomeNeigbours = m_mapPtr->countNeighbours(x, z);
+	return createPointWithNoise(biomeNeigbours, x, z);
 }
 
 glm::vec3 ChunkHandler::Chunk::computeNormal(const std::vector<glm::vec3>& p,const glm::vec3& v0) const {
@@ -132,19 +187,12 @@ glm::vec3 ChunkHandler::Chunk::setColorFromLOD() {
 	}
 }
 
-Biome ChunkHandler::Chunk::getBiome(float xPos, float zPos) const
-{
-	//float temperature = ...
-	//float humidity = ...
-
-}
-
-ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int _id) :
-	lod{ _lod }, nrVertices { (_nrVertices - 1) / _lod + 3 }, XPOS{ xpos }, ZPOS{ zpos }, SPACING{ _spacing * _lod }, id{ _id } {
+ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int _id, BiomeMap* ptr) :
+	lod{ _lod }, nrVertices{ (_nrVertices - 1) / _lod + 3 }, XPOS{ xpos }, ZPOS{ zpos }, SPACING{ _spacing * _lod }, id{ _id }, m_mapPtr{ptr} {
 	int MAXLOD = 16;
 	unsigned int newLod = _lod * 2;
 	if (newLod <= MAXLOD)
-		higherLod = new Chunk{ _nrVertices, newLod, xpos, zpos, _spacing, 0 };
+		higherLod = new Chunk{ _nrVertices, newLod, xpos, zpos, _spacing, 0, m_mapPtr };
 		//auto future = std::async(generateLOD, this, _nrVertices, newLod, xpos, zpos, _spacing, _id);
 		//Chunk* temp = future.get();
 	else
@@ -179,7 +227,8 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 				x = xpos + (width - 2) * SPACING;
 			}
 
-			Biome biome = getBiome(x, z);
+			std::vector<unsigned short> biomeNeighbours = m_mapPtr->countNeighbours(x, z);
+
 
 			if (depth == 0 || depth == nrVertices - 1 || width == 0 || width == nrVertices - 1) //edges of grid ie. skirts
 			{
@@ -189,12 +238,12 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 			}
 			else //Non edges compute noise value for the y-component
 			{
-				auto pos = createPointWithNoise(biome, x, z, &minY, &maxY);
+				auto pos = createPointWithNoise(biomeNeighbours, x, z, &minY, &maxY);
 				vertices.push_back({ pos });
 			}
 
 			vertices.back().lodColor = color;
-			vertices.back().biome = biome;
+			vertices.back().biome = static_cast<float>(plains * biomeNeighbours[plains] + crystalMountain * biomeNeighbours[crystalMountain]) / static_cast<float>((biomeNeighbours[desert] + biomeNeighbours[plains] + biomeNeighbours[crystalMountain]));
 
 			//add indices to create triangle list
 			if (width < nrVertices - 1 && depth < nrVertices - 1) {
@@ -460,15 +509,62 @@ chunkChecker ChunkHandler::checkChunk(const glm::vec3& camPos)
 /// <param name="inside"></param>
 void ChunkHandler::generateChunk(const std::pair<float, float>& newPos, unsigned int nrVeritices, float _spacing, unsigned int id, chunkChecker cc)
 {
-	Chunk* chunk = new Chunk{ nrVertices, 1, newPos.first, newPos.second, _spacing, id };
+	Chunk* chunk = new Chunk{ nrVertices, 1, newPos.first, newPos.second, _spacing, id, &m_biomeMap };
 	//std::future<Chunk*> ret = std::async();
 
 	renderQ.push({ chunk, cc });
 }
 
-ChunkHandler::Chunk* ChunkHandler::Chunk::generateLOD(unsigned int nrVerticies, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int id) {
-	Chunk* chunkLOD = new Chunk{ nrVerticies, _lod, xpos, zpos, _spacing, id };
-	return chunkLOD;
+//ChunkHandler::Chunk* ChunkHandler::Chunk::generateLOD(unsigned int nrVerticies, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int id) {
+//	Chunk* chunkLOD = new Chunk{ nrVerticies, _lod, xpos, zpos, _spacing, id };
+//	return chunkLOD;
+//}
+
+void ChunkHandler::updateBiomeMap(chunkChecker cc) {
+	m_biomeMap.update(cc);
+
+	std::lock_guard<std::mutex> lock(mu);	// Thread safe
+
+	std::vector<unsigned int> ids;
+	int row, col;
+	switch (cc)
+	{
+	case chunkChecker::up:
+		row = 0;
+		for (col = 0; col < gridSize; ++col) {
+			ids.push_back(index(col, row, gridSize));
+		}
+		break;
+
+	case chunkChecker::down:
+		row = gridSize - 1;
+		for (col = 0; col < gridSize; ++col) {
+			ids.push_back(index(col, row, gridSize));
+		}
+		break;
+
+	case chunkChecker::left:
+		col = 0;
+		for (row = 0; row < gridSize; ++row) {
+			ids.push_back(index(col, row, gridSize));
+		}
+		break;
+
+	case chunkChecker::right:
+		col = gridSize - 1;
+		for (row = 0; row < gridSize; ++row) {
+			ids.push_back(index(col, row, gridSize));
+		}
+		break;
+	}
+
+	// Multi-threading
+	for (auto id : ids)
+	{
+		auto newPos = newChunkPosition(cc, id);
+		std::thread t(&ChunkHandler::generateChunk, this, newPos, nrVertices, spacing, id, cc);
+		t.detach();
+	}
 }
 
 
@@ -513,53 +609,14 @@ void ChunkHandler::updateChunks(const glm::vec3& camPos)
 	// MoveQ evaluator, only adds chunks to the render queue if all chunks from the previous move have been generated.
 	if (!moveQ.empty() && renderCounter == gridSize)
 	{
-		std::lock_guard<std::mutex> lock(mu);	// Thread safe
-
 		renderCounter = 0;
-		std::vector<unsigned int> ids;
 
 		chunkChecker cc = moveQ.front();
 		moveQ.pop();
-		
-		int row, col;
-		switch (cc)
-		{
-		case chunkChecker::up:
-			row = 0;
-			for (col = 0; col < gridSize; ++col) {
-				ids.push_back(index(col, row, gridSize));
-			}
-			break;
 
-		case chunkChecker::down:
-			row = gridSize - 1;
-			for(col = 0; col < gridSize; ++col) {
-				ids.push_back(index(col, row, gridSize));
-			}
-			break;
-
-		case chunkChecker::left:
-			col = 0;
-			for(row = 0; row < gridSize; ++row) {
-				ids.push_back(index(col, row, gridSize));
-			}
-			break;
-
-		case chunkChecker::right:
-			col = gridSize - 1;
-			for(row = 0; row < gridSize; ++row) {
-				ids.push_back(index(col, row, gridSize));
-			}
-			break;
-		}
-
-		// Multi-threading
-		for (auto id : ids)
-		{
-			auto newPos = newChunkPosition(cc, id);
-			std::thread t(&ChunkHandler::generateChunk, this, newPos, nrVertices, spacing, id, cc);
-			t.detach();
-		}
+		std::thread t(&ChunkHandler::updateBiomeMap, this, cc);
+		//std::thread t(&BiomeMap::update, this->m_biomeMap, cc);
+		t.detach();
 	}
 
 	// Swaps chunks in the chunks grid when a new chunk has been rendered. Updates all chunk ids to match it's position in the chunks grid.

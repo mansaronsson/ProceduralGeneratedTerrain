@@ -31,9 +31,9 @@ void updateCamera2();
 void printmat4(const glm::mat4& mat);
 
 //settings
-int constexpr gridSize{ 1 };
+int constexpr gridSize{ 5 };
 int constexpr nrVertices{ 161 };
-float constexpr spacing{ 0.075 };
+float constexpr spacing{ 0.2 };
 
 const unsigned int SCREEN_WIDTH = 1600, SCREEN_HEIGHT = 900;
 

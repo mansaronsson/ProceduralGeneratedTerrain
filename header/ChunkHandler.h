@@ -2,7 +2,6 @@
 #include <vector>
 #include "Mesh.h"
 #include <glm/gtc/noise.hpp>
-#include "BoundingBox.h"
 #include <glm/gtx/string_cast.hpp>
 #include <iostream>
 #include "CameraPlane.h"
@@ -11,14 +10,10 @@
 #include <mutex>
 #include <future>
 
+#include "BoundingBox.h"
+#include "BiomeMap.h"
+#include "enums.h"
 
-enum Biome {
-	normal, crystalMountain
-};
-
-enum chunkChecker {
-	inside, up, down, left, right
-};
 
 class ChunkHandler {
 public:
@@ -100,7 +95,7 @@ private:
 		/// <param name="xpos">start position x</param>
 		/// <param name="zpos">start position z</param>
 		/// <param name="_spacing">how much space between each vertex</param>
-		Chunk(unsigned int _size, unsigned int lod, float xpos, float zpos, float _spacing, unsigned int _id);
+		Chunk(unsigned int _size, unsigned int lod, float xpos, float zpos, float _spacing, unsigned int _id, BiomeMap* ptr);
 		//Chunk(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices, const std::vector<glm::vec3>& bBox, size_t _size);
 
 		~Chunk() {
@@ -140,7 +135,7 @@ private:
 		/// Create noisy point at position x,z computes height y
 		/// TODO: make noise dependent on variables
 		/// </summary>
-		glm::vec3 createPointWithNoise(Biome biome, float x, float z, float* minY = nullptr, float* maxY = nullptr) const;
+		glm::vec3 createPointWithNoise(const std::vector<unsigned short>& biomeNeighbours, float x, float z, float* minY = nullptr, float* maxY = nullptr) const;
 		/// <summary>
 		/// Helper function computes x & z position in grid
 		/// </summary>
@@ -160,7 +155,7 @@ private:
 
 		glm::vec3 setColorFromLOD();
 
-		Biome getBiome(float xPos, float zPos) const;
+		//std::vector<unsigned short> countBiomeNeighbours(float xPos, float zPos) const;
 
 		chunkChecker checkMovement(const glm::vec3& pos);
 
@@ -197,6 +192,8 @@ private:
 		Mesh mesh;
 		BoundingBox boundingBox;
 		Chunk* higherLod;
+
+		BiomeMap* m_mapPtr;
 	};
 	/*End of chunk class*/
 
@@ -205,6 +202,8 @@ private:
 	}
 
 	void generateChunk(const std::pair<float, float>& newPos, unsigned int nrVeritices, float spacing, unsigned int id, chunkChecker cc = chunkChecker::inside);
+
+	void updateBiomeMap(chunkChecker cc);
 
 	/// <summary>
 	/// Check if the camera is inside a chunk on x,z plane 
@@ -228,4 +227,6 @@ private:
 	using chunkInfo = std::tuple<Chunk*, chunkChecker>;
 	std::queue<chunkInfo> renderQ;
 	std::queue<chunkChecker> moveQ;
+
+	BiomeMap m_biomeMap;
 };
