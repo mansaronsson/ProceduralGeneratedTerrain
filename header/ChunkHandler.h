@@ -240,6 +240,5 @@ private:
 	std::queue<chunkInfo> renderQ;
 	std::queue<chunkChecker> moveQ;
 
-
 	std::function<void(ChunkHandler&, float, float, float, float)> callbackfunc;
 };

@@ -1,6 +1,8 @@
 #include "..\header\ChunkHandler.h"
 #include <iostream>
 
+
+float triERROR = 0.0f, crossERROR = 0.0f;
 ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, float _spacing, float _yscale, std::function<void(ChunkHandler&, float,float,float,float)> func)
 	: gridSize{ (_gridSize % 2 == 0 ? (_gridSize + 1) : _gridSize) }, nrVertices{ _nrVertices }, spacing{ _spacing }, yscale{ _yscale }, currentChunk{ nullptr },
 	callbackfunc{ func }
@@ -26,6 +28,8 @@ ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, flo
 		}
 	}
 	currentChunk = chunks[gridSize * gridSize / 2];
+
+	std::cout << " triangle Error " << triERROR / (chunks.size() * 5)<< " cross Error " << crossERROR / (5 * chunks.size()) << '\n';
 }
  
 glm::vec3 ChunkHandler::Chunk::createPointWithNoise(float x, float z, float* minY, float* maxY ) const {
@@ -128,6 +132,127 @@ glm::vec3 ChunkHandler::Chunk::setColorFromLOD() {
 	}
 }
 
+
+/* noise map testing */
+struct NoiseMap {
+#include <glm/gtc/noise.hpp>
+	int octaves;
+	float amplitude;
+	float gain;
+	float lacunarity;
+	float frequency;
+	float seed;
+
+	float evaluate(float x, float z) {
+		float noiseSum = 0.0f;
+
+		for (int i = 0; i < octaves; ++i) {
+			noiseSum += amplitude * glm::perlin(glm::vec3((x + 1) * frequency, (z + 1) * frequency, seed));
+			frequency *= lacunarity;
+			amplitude *= gain;
+		}
+
+		return noiseSum;
+	}
+};
+
+
+const std::string temperatureString[2]{ "cold", "hot" };
+const std::string moistureString[2]{ "wet", "dry" };
+const std::string biomeString[4]{ "ice", "tundra", " woodland", "desert" };
+const glm::vec3 colors[4]{ glm::vec3{0.3f, 1.0f, 1.0f}, glm::vec3{0.3f, 1.0f, 0.7f}, glm::vec3{0.15f, 0.5f, 0.08f}, glm::vec3{1.0f, 0.7f, 0.1f} };
+const glm::vec3 tempcolors[2]{ glm::vec3{0.0f, 0.5f, 1.0f}, glm::vec3{1.0f, 0.1f, 0.0f} };
+const glm::vec3 moistcolors[2]{ glm::vec3{0.0f, 0.5f, 1.0f}, glm::vec3{0.2f, 1.0f, 0.2f} };
+
+const float coldValue = 0.0f, wetValue = 0.0f;
+
+enum class Temperature
+{
+	cold, hot
+};
+
+enum Moisture {
+	wet, dry
+};
+
+enum BiomeType {
+	ice, tundra, woodland, desert
+};
+
+BiomeType computeBiome(Temperature temp, Moisture moist) {
+	BiomeType biomeTable[2][2]{
+		//Cold          //Hot
+		BiomeType::ice, BiomeType::tundra,     //Wet
+		BiomeType::woodland, BiomeType::desert //Dry
+	};
+
+	return biomeTable[(int)temp][(int)moist];
+}
+void testBiome(Temperature temp, Moisture moist) {
+	std::cout << temperatureString[(int)temp] << " and " << moistureString[(int)moist] << " creates " << biomeString[computeBiome(temp, moist)] << "\n\n";
+}
+
+
+Temperature getTemperatureAtValue(float val) {
+	if (val < coldValue)
+		return Temperature::cold;
+	else
+		return Temperature::hot;
+}
+Moisture getMoistureAtValue(float val) {
+	if (val < wetValue)
+		return Moisture::wet;
+	else
+		return Moisture::dry;
+}
+void getColorFromBiome(Vertex& v, float x, float z) {
+
+	/*
+	int octaves;
+	float amplitude;
+	float gain;
+	float lacunarity;
+	float frequency;
+	float seed;
+	*/
+	NoiseMap heatMap{ 1, 1.0f, 0.5f, 2.0f, 0.013f, 0.1f };
+	NoiseMap moistMap{ 2, 1.0f, 0.5f, 2.0f, 0.024f, 1.137f };
+
+	float heatValue = heatMap.evaluate(x, z);
+	float moistValue = moistMap.evaluate(x, z);
+
+	//std::cout << heatValue << "  " << moistValue << '\n';
+
+	Temperature heat = getTemperatureAtValue(heatValue);
+	Moisture moist = getMoistureAtValue(moistValue);
+
+	BiomeType biome = computeBiome(heat, moist);
+
+	
+	v.biomecolor = colors[(int)biome];
+	v.heatcolor = tempcolors[(int)heat];
+	v.moistcolor = moistcolors[(int)moist];
+}
+
+//struct Biome {
+//
+//	Biome(float x, float z) {
+//		evaluate(x, z);
+//	}
+//
+//	BiomeType evaluate(float x, float z) {
+//		float heatValue = heatMap.evaluate(x, z);
+//		float moistValue = moistMap.evaluate(x, z);
+//
+//		//std::cout << "at x: " << x << " z: " << z << " heat is: " << heatValue << " and moist is " << moistValue << '\n';
+//
+//		//testBiome(heat, moist);
+//		//return computeBiome(heat, moist);
+//	}
+//
+//};
+
+
 ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int _id) :
 	lod{ _lod }, nrVertices { (_nrVertices - 1) / _lod + 3 }, XPOS{ xpos }, ZPOS{ zpos }, SPACING{ _spacing * _lod }, id{ _id } {
 	int MAXLOD = 16;
@@ -180,6 +305,7 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 				vertices.push_back({ pos });
 			}
 			//Set vertex color based on distance
+			getColorFromBiome(vertices.back(), x, z);
 			vertices.back().color = color;
 			if (depth == 0 || depth == nrVertices - 1 || width == 0 || width == nrVertices - 1) //edges of grid ie. skirts
 			{
@@ -365,33 +491,60 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 			vertices[index(width, depth)].normal = normal;
 		}
 	}
+
 	/*Temporary set color according to angle between normal and ground*/
 	glm::vec3 ground{ 0.0f, 1.0f, 0.0f };
+
+	float crosserror = 0.0f;
+	float triangleerror = 0.0f;
 	for (Vertex& vert : vertices) {
-		//glm::vec3 p = vert.position;
-		//float offset = 0.01f;
-		//auto p1 = createPointWithNoise(p.x - offset, p.z - offset);
-		//auto p2 = createPointWithNoise(p.x + offset, p.z - offset);
-		//auto p3 = createPointWithNoise(p.x, p.z + offset);
+		glm::vec3 p = vert.position;
+		float offset = 0.05f;
+		auto p1 = createPointWithNoise(p.x - offset, p.z - offset);
+		auto p2 = createPointWithNoise(p.x + offset, p.z - offset);
+		auto p3 = createPointWithNoise(p.x, p.z + offset);
 
-		//glm::vec3 e1 = p2 - p1;
-		//glm::vec3 e2 = p3 - p1;
-		//glm::vec3 normal = glm::normalize(glm::cross(e2, e1));
-		//float angle2 = std::acosf(glm::dot(normal, ground)) * 180 / 3.14f;
+		glm::vec3 e1 = p2 - p1;
+		glm::vec3 e2 = p3 - p1;
+		glm::vec3 normal = glm::normalize(glm::cross(e2, e1));
 
+		auto n = createPointWithNoise(p.x, p.z - offset);
+		auto s = createPointWithNoise(p.x, p.z + offset);
+		auto w = createPointWithNoise(p.x - offset, p.z);	
+		auto e = createPointWithNoise(p.x + offset, p.z);
+
+		e1 = n - s;
+		e2 = w - e;
+		glm::vec3 normal_cross = glm::normalize(glm::cross(e1, e2));
+
+
+		float triangleAngle = std::acosf(glm::dot(normal, ground)) * 180 / 3.14f;
 		float angle = std::acosf(glm::dot(vert.normal, ground)) * 180 / 3.14f;
-		//std::cout << "new normal " << glm::to_string(normal) << '\n';
-		//std::cout << "normal " << glm::to_string(vert.normal) << "\n"
+		float crossAngle = std::acosf(glm::dot(normal_cross, ground)) * 180 / 3.14f;
+
+		//std::cout << "normal " << glm::to_string(vert.normal) << "\n";
+		//std::cout << "triangle normal " << glm::to_string(normal) << '\n';
+		//std::cout << "cross normal " << glm::to_string(normal_cross) << '\n';
+		//std::cout << "angle " << angle << '\n';
+		//std::cout << "triangle angle " << triangleAngle << '\n';
+		//std::cout << "cross angle " << crossAngle << '\n';
+		//std::cout << std::endl;
+		
 		////std::cout << "difference " glm::to_string(vert.normal - normal)) << std::endl;
-		//std::cout << "new angle " << angle2 << '\n';
-		//std::cout << " angle " << angle << '\n' << std::endl;
-		if (angle < 40)
-		{
-			vert.color = glm::vec3{ 0.0f, 1.0f, 0.0f };
-		}
-		else
-			vert.color = glm::vec3{ 1.0f, 0.0f, 0.0f };
+		triangleerror += std::abs(angle - triangleAngle);
+		crosserror += std::abs(angle - crossAngle);
+		
+		//if (angle < 40)
+		//{
+		//	vert.color = glm::vec3{ 0.0f, 1.0f, 0.0f };
+		//}
+		//else
+		//	vert.color = glm::vec3{ 1.0f, 0.0f, 0.0f };
 	}
+	
+	//std::cout << "Triangle error: " << triangleerror / vertices.size() << " cross error: " << crosserror / vertices.size() << '\n';
+	triERROR += triangleerror / vertices.size();
+	crossERROR += crosserror / vertices.size();
 	//mesh = Mesh{ vertices, indices }; 
 
 	//create boundingbox ignoring the extra row and column added by the skirts
@@ -405,6 +558,8 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 	points = std::vector<glm::vec3>{ { minX, maxY, minZ }, { maxX, maxY, minZ }, { maxX, maxY, maxZ }, { minX, maxY, maxZ },
 				{ minX, minY, minZ }, { maxX, minY, minZ }, { maxX, minY, maxZ }, { minX, minY, maxZ } };
 }
+
+
 
 chunkChecker ChunkHandler::Chunk::checkMovement(const glm::vec3& pos)
 {

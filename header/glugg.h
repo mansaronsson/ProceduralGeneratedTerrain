@@ -53,6 +53,7 @@ void gluggPopMatrix();
 void gluggTranslate(const glm::vec3& p);
 void gluggTranslate(GLfloat x, GLfloat y, GLfloat z);
 void gluggRotate(GLfloat angle, GLfloat x, GLfloat y, GLfloat z);
+void gluggRotate(float angle, const glm::vec3& axis);
 void gluggScale(GLfloat x, GLfloat y, GLfloat z);
 glm::mat4 gluggCurrentMatrix();
 void gluggSetMatrix(const glm::mat4& m);

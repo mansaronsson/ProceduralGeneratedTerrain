@@ -88,6 +88,10 @@ void gluggRotate(GLfloat angle, GLfloat x, GLfloat y, GLfloat z)
 	//vec3 v = SetVector(x, y, z);
 	//gMatrixStack[numMatrices-1] = Mult(gMatrixStack[numMatrices-1], ArbRotate(v, angle));
 }
+
+void gluggRotate(float angle, const glm::vec3& axis) {
+	gluggRotate(angle, axis.x, axis.y, axis.z);
+}
  	
 void gluggScale(GLfloat x, GLfloat y, GLfloat z)
 {

@@ -15,6 +15,7 @@
 #include "header/ChunkHandler.h"
 #include "header/CameraPlane.h"
 #include "header/glugg.h"
+#include "header/Tree.h"
 
 
 void initialize();
@@ -31,9 +32,10 @@ void updateCamera2();
 void printmat4(const glm::mat4& mat);
 
 //settings
-int constexpr gridSize{ 17 };
+int constexpr gridSize{ 5 };
 int constexpr nrVertices{ 161 };
 float constexpr spacing{ 0.075f };
+int constexpr NROFTREES{ 1 };
 
 const unsigned int SCREEN_WIDTH = 800, SCREEN_HEIGHT = 600;
 
@@ -43,131 +45,47 @@ CameraControl camera1Control{ glm::vec3{ 0.0f, 1.0f, 0.0f } };
 float deltaTime = 0.0f, lastFrame = 0.0f;
 bool cull = false, useLOD = true, wireFrame = false, drawbb = false;
 
-
-void MakeCylinderAlt(int aSlices, float height, float topwidth, float bottomwidth)
-{
-    gluggMode(GLUGG_TRIANGLE_STRIP);
-    glm::vec3 top = glm::vec3{ 0, height, 0 };
-    glm::vec3 center = glm::vec3(0, 0, 0);
-    glm::vec3 bn = glm::vec3(0, -1, 0); // Bottom normal
-    glm::vec3 tn = glm::vec3(0, 1, 0); // Top normal
-
-    for (float a = 0.0; a < 2.0 * M_PI + 0.0001; a += 2.0 * M_PI / aSlices)
-    {
-        float a1 = a;
-
-        glm::vec3 p1 = glm::vec3(topwidth * cos(a1), height, topwidth * sin(a1));
-        glm::vec3 p2 = glm::vec3(bottomwidth * cos(a1), 0, bottomwidth * sin(a1));
-        glm::vec3 pn = glm::vec3(cos(a1), 0, sin(a1));
-
-        // Done making points and normals. Now create polygons!
-        gluggNormalv(pn);
-        gluggTexCoord(height, a1 / M_PI);
-        gluggVertexv(p2);
-        gluggTexCoord(0, a1 / M_PI);
-        gluggVertexv(p1);
-    }
-
-    // Then walk around the top and bottom with fans
-    gluggMode(GLUGG_TRIANGLE_FAN);
-    gluggNormalv(bn);
-    gluggVertexv(center);
-    // Walk around edge
-    for (float a = 0.0; a <= 2.0 * M_PI + 0.001; a += 2.0 * M_PI / aSlices)
-    {
-        glm::vec3 p = glm::vec3(bottomwidth * cos(a), 0, bottomwidth * sin(a));
-        gluggVertexv(p);
-    }
-    // Walk around edge
-    gluggMode(GLUGG_TRIANGLE_FAN); // Reset to new fan
-    gluggNormalv(tn);
-    gluggVertexv(top);
-    for (float a = 2.0 * M_PI; a >= -0.001; a -= 2.0 * M_PI / aSlices)
-    {
-        glm::vec3 p = glm::vec3(topwidth * cos(a), height, topwidth * sin(a));
-        gluggVertexv(p);
-    }
-}
-
-void CreateTreeBranches(int count, int maxlevel, float height);
-
-/// <summary>
-/// Creates a tree with root at 
-/// </summary>
-/// <param name="program"></param>
-/// <param name="position"></param>
-/// <returns></returns>
-std::pair<GLuint, int> MakeTree(GLuint program, glm::vec3 position)
-{
-    gluggSetPositionName("position");
-    gluggSetNormalName("normal");
-    gluggSetTexCoordName("in_st");
-
-    gluggBegin(GLUGG_TRIANGLES);
-    // Between gluggBegin and gluggEnd, call MakeCylinderAlt plus glugg transformations
-    // to create a tree.
-    gluggTranslate(position);
-    MakeCylinderAlt(10, 2, 0.1, 0.15);
-    CreateTreeBranches(0, 4, 2.0f);
-    int count;
-    GLuint id = gluggEnd(&count, program, 0);
-
-    return std::make_pair(id, count);
-}
+float heat = false, moist = false, biome = false;
 
 
 //Callback function to create new trees when generating new chunk
 struct TreeGenerator {
     unsigned int ID;
-    std::vector<std::pair<unsigned int, int>>& trees;
+    //std::vector<std::pair<unsigned int, int>>& trees;
+    std::vector<Tree*>& trees;
 
     /// <summary>
     /// Creates a new tree inside the bounding box of min - max x and z
     /// </summary>
     void operator()(ChunkHandler& chandler, float minX, float maxX, float minZ, float maxZ) {
-        glUseProgram(ID); //Activate shader 
-        
         for (int i = 0; i < nroftrees; i++) {
             float x = random(minX, maxX);
             float z = random(minZ, maxZ);
             glm::vec3 offset{ 0.0f, -0.1f, 0.0f };
             glm::vec3 position = chandler.getPointOnTerrain(x, z) + offset;
 
-            trees.push_back(MakeTree(ID, position));
+            //validate position
+            Biome biome{};
+            //Give position to Biome map determine biome 
+            auto biomeType = biome.getBiomeAtPosition(x, z);
+
+            //create tree depending on what biome it is
+            auto tree = Tree::Create(biomeType, ID, position);
+            
+            //trees.push_back(MakeTree(ID, position));
+            if(tree)
+                trees.push_back(tree);
         }
     }
-    const int nroftrees{ 1 };
+    const int nroftrees{ NROFTREES };
 private:
     float random(float low, float high) {
         return low + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (high - low)));
     }
 };
 
-void CreateTreeBranches(int count, int maxlevel, float height) {
-    if (count == maxlevel)
-    {
-        return;
-
-    }
-    ++count;
-    int nrOfBranches = (rand() % 6) + 2;
-    //gluggPushMatrix();
-
-    gluggTranslate(0, height / count, 0);
-    float angle = 2 * M_PI / nrOfBranches;
-
-    for (int i = 0; i < nrOfBranches; ++i) {
-        gluggPushMatrix();
-        //float r = (double) rand() / RAND_MAX;
-        gluggRotate(angle * i, 0, 1, 0);
-        gluggRotate(30 * M_PI / 180, 0, 0, 1);
-        MakeCylinderAlt(10, height / (count + 1), 0.1 / (1 + count), 0.1 / count);
-        CreateTreeBranches(count, maxlevel, height);
-        gluggPopMatrix();
-    }
-}
-
 int main() {
+
 
     initialize();
     //create window
@@ -203,7 +121,7 @@ int main() {
     Shader treeShader{ "shaders/treeVertex.vert", "shaders/treeFragment.frag" };
 
     glm::mat4 perspective = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 1.0f, 70.0f);
-    glm::mat4 perspective2 = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 100.0f);
+    glm::mat4 perspective2 = glm::perspective(glm::radians(45.0f), static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT, 0.1f, 200.0f);
 
     /*** Always use the larger perspective to render camera frustum, otherwise it risk being culled in viewport ***/
     cameraShader.use();
@@ -225,8 +143,9 @@ int main() {
 
     Mesh camera1Mesh{ campoints, camIndices };
 
-    std::vector<std::pair<GLuint, int>> trees;
-
+    //std::vector<std::pair<GLuint, int>> trees;
+    std::vector<Tree*> trees;
+    trees.reserve(100);
     TreeGenerator treeGenerator{ treeShader.ID, trees };
     ChunkHandler chandler{gridSize, nrVertices, spacing , 1.8f , treeGenerator};   // (gridSize, nrVertices, spacing, yScale)
     
@@ -239,6 +158,18 @@ int main() {
     *****************/
 
     float timer{ 0.0f };
+
+    //testBiome(cold, wet);
+    //testBiome(cold, dry);
+    //testBiome(hot, wet);
+    //testBiome(hot, dry);
+
+    //for (int i = 0; i < 10; i++) {
+    //    float x = spacing * i * 10;
+    //    float z = spacing * i * 5;
+
+    //    Biome{ x,z };
+    //}
     
     while (!glfwWindowShouldClose(window))
     {
@@ -305,6 +236,13 @@ int main() {
         if(glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS)
             myShader.setBool("colorDistance", false);
 
+        if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
+            myShader.setBool("heat", heat);
+        if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS)
+            myShader.setBool("moist", moist);
+        if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS)
+            myShader.setBool("biome", biome);
+
         if (wireFrame) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
             if (useLOD)
@@ -324,10 +262,13 @@ int main() {
         treeShader.setMat4("M", modelM);
         toggleCamera ? treeShader.setMat4("V", camera1) : treeShader.setMat4("V", camera2);
         toggleCamera ? treeShader.setMat4("P", perspective) : treeShader.setMat4("P", perspective2);
-        for (int i = 0; i < trees.size(); i++) {
-            glBindVertexArray(trees[i].first);	// Select VAO
-            glDrawArrays(GL_TRIANGLES, 0, trees[i].second);
+        for (const Tree* tree : trees) {
+            tree->draw();
         }
+        //for (int i = 0; i < trees.size(); i++) {
+            //glBindVertexArray(trees[i].first);	// Select VAO
+            //glDrawArrays(GL_TRIANGLES, 0, trees[i].second);
+        //}
 
         /*** Draw bounding boxes around chunks  ***/
         boundingBoxShader.use();
@@ -447,7 +388,7 @@ void updateCamera2() {
     camera2 = glm::mat4{ 1.0f };
     camera2 = glm::rotate(camera2, glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f));
     camera2 = glm::translate(camera2, -camera1Control.getCameraPosition());
-    camera2 = glm::translate(camera2, glm::vec3(0.0f, -20.0f, -15.0f));
+    camera2 = glm::translate(camera2, glm::vec3(0.0f, -70.0f, -60.0f));
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -471,6 +412,15 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     }
     if (key == GLFW_KEY_L && action == GLFW_PRESS) {
         useLOD = !useLOD;
+    }
+    if (key == GLFW_KEY_1 && action == GLFW_PRESS) {
+        heat = !heat;
+    }
+    if (key == GLFW_KEY_2 && action == GLFW_PRESS) {
+        moist = !moist;
+    }
+    if (key == GLFW_KEY_3 && action == GLFW_PRESS) {
+        biome = !biome;
     }
 }
 
