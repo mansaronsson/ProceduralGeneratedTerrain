@@ -1,10 +1,10 @@
-#include "../header/CrystalMountains.h"
+#include "../header/CrystalChunk.h"
 
 
 CrystalChunk::CrystalChunk(const glm::vec3& pos, const glm::vec3& dir) {
 	
-	// 1-4
-	int nStems = 4;
+	// 1-5
+	int nStems = 1;
 
 	for (int stem = 0; stem < nStems; stem++)
 	{
@@ -22,6 +22,14 @@ CrystalChunk::CrystalChunk(const glm::vec3& pos, const glm::vec3& dir) {
 		}
 
 		crystals.push_back(new Crystal{pos, stemDir});
+	}
+}
+
+CrystalChunk::~CrystalChunk()
+{
+	for (auto c : crystals) {
+		delete c;
+		c = nullptr;
 	}
 }
 
@@ -45,7 +53,7 @@ CrystalChunk::Crystal::Crystal(const glm::vec3& pos, const glm::vec3& dir) {
 	float topLength = 5.0f;
 
 	// 3-8
-	int nSides = 6;
+	int nSides = 8;
 
 	// vertices
 	vertices.push_back({ pos });	// start
@@ -68,6 +76,7 @@ CrystalChunk::Crystal::Crystal(const glm::vec3& pos, const glm::vec3& dir) {
 		vertices.push_back(vm);
 		vertices.push_back(vm);
 		vertices.push_back(vm);
+		vertices.push_back(vm);
 	
 		// end
 		vertices.push_back({ pos + dir * topLength });
@@ -78,26 +87,31 @@ CrystalChunk::Crystal::Crystal(const glm::vec3& pos, const glm::vec3& dir) {
 	for (size_t i = 0; i < nSides; ++i) {
 
 		// base
-		vertices[i * 7 + 1].normal = -dir;
+		vertices[i * 8 + 1].normal = -dir;
 
 		// middle
-		glm::vec3 e1 = vertices[i * 7 + 5].position - vertices[i * 7 + 2].position;
-		glm::vec3 e2 = vertices[i * 7 + 9].position - vertices[i * 7 + 2].position;
-		glm::vec3 n = glm::cross(e1, e2);
+		glm::vec3 e1 = vertices[i * 8 + 6].position - vertices[i * 8 + 2].position;
+		size_t temp = i * 8 + 10;
+		glm::vec3 e2 = vertices[temp > nSides * 8 ? temp - nSides * 8 : temp].position - vertices[i * 8 + 2].position;
+		glm::vec3 n = glm::cross(e2, e1);
 
-		vertices[i * 7 + 2].normal = n;
-		vertices[i * 7 + 5].normal = n;
-		vertices[i * 7 + 9].normal = n;
-		vertices[i * 7 + 13].normal = n;
+		vertices[i * 8 + 2].normal = n;
+		vertices[i * 8 + 6].normal = n;
+		temp = i * 8 + 11;
+		vertices[temp > nSides * 8 ? temp - nSides * 8 : temp].normal = n;
+		temp = i * 8 + 15;
+		vertices[temp > nSides * 8 ? temp - nSides * 8 : temp].normal = n;
 
 		// top
-		e1 = vertices[i * 7 + 7].position - vertices[i * 7 + 4].position;
-		e2 = vertices[i * 7 + 11].position - vertices[i * 7 + 4].position;
-		n = glm::cross(e1, e2);
+		e1 = vertices[i * 8 + 8].position - vertices[i * 8 + 4].position;
+		temp = i * 8 + 13;
+		e2 = vertices[temp > nSides * 8 ? temp - nSides * 8 : temp].position - vertices[i * 8 + 4].position;
+		n = glm::cross(e2, e1);
 
-		vertices[i * 7 + 4].normal = n;
-		vertices[i * 7 + 7].normal = n;
-		vertices[i * 7 + 11].normal = n;
+		vertices[i * 8 + 4].normal = n;
+		vertices[i * 8 + 8].normal = n;
+		temp = i * 8 + 13;
+		vertices[temp > nSides * 8 ? temp - nSides * 8 : temp].normal = n;
 	}
 
 	// indices
@@ -105,29 +119,35 @@ CrystalChunk::Crystal::Crystal(const glm::vec3& pos, const glm::vec3& dir) {
 
 		// base
 		indices.push_back(0);
-		indices.push_back(((i + 1) * 7 + 1) % (nSides * 7));
-		indices.push_back(i * 7 + 1);
+		unsigned int temp = i * 8 + 9;
+		indices.push_back(temp > nSides * 8 ? temp - nSides * 8 : temp);
+		indices.push_back(i * 8 + 1);
 
 		// middle
-		indices.push_back(i * 7 + 2);
-		unsigned int temp = i * 7 + 9;
-		indices.push_back(temp > nSides * 7 ? temp - nSides * 7 : temp);
-		indices.push_back(i * 7 + 5);
+		indices.push_back(i * 8 + 2);
+		temp = i * 8 + 11;
+		indices.push_back(temp > nSides * 8 ? temp - nSides * 8 : temp);
+		indices.push_back(i * 8 + 6);
 
-		indices.push_back(i * 7 + 5);
-		temp = i * 7 + 9;
-		indices.push_back(temp > nSides * 7 ? temp - nSides * 7 : temp);
-		temp = i * 7 + 13;
-		indices.push_back(temp > nSides * 7 ? temp - nSides * 7 : temp);
+		indices.push_back(i * 8 + 6);
+		temp = i * 8 + 11;
+		indices.push_back(temp > nSides * 8 ? temp - nSides * 8 : temp);
+		temp = i * 8 + 15;
+		indices.push_back(temp > nSides * 8 ? temp - nSides * 8 : temp);
 
 		// top
-		indices.push_back(i * 7 + 4);
-		temp = i * 7 + 11;
-		indices.push_back(temp > nSides * 7 ? temp - nSides * 7 : temp);
-		indices.push_back(i * 7 + 7);
+		indices.push_back(i * 8 + 4);
+		temp = i * 8 + 13;
+		indices.push_back(temp > nSides * 8 ? temp - nSides * 8 : temp);
+		indices.push_back(i * 8 + 8);
 	}
 
 	mesh = Mesh{ vertices, indices };
+}
+
+CrystalChunk::Crystal::~Crystal()
+{
+	mesh.deleteMesh();
 }
 
 void CrystalChunk::Crystal::draw() {

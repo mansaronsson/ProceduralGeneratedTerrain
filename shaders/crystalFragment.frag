@@ -5,7 +5,12 @@ in vec3 o_normal;
 in vec3 pos;
 in vec3 o_color;
 
-void main() {
+vec3 lightdir = vec3(1.0f, 1.0f, 0.0f);
 
-	outColor = vec4(0.8f, 0.0f, 0.4f, 0.5f);
+void main() {
+	vec3 normal = normalize(o_normal);
+	lightdir = normalize(lightdir);
+	float k = max(dot(normal, lightdir), 0.0);
+
+	outColor = k * vec4(0.8f, 0.0f, 0.4f, 0.5f);
 }

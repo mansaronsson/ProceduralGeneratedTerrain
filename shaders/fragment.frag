@@ -20,7 +20,7 @@ vec3 getDesertColor() {
 vec3 getPlainsColor() {
 	vec3 color = vec3(0.2f, 0.2f, 0.7f); // blue
 
-	float ss = smoothstep(-1.5f, -0.0f, pos.y);
+	float ss = smoothstep(0.0f, 0.5f, pos.y);
 	color = ss * vec3(0.1f, 0.5f, 0.1f) + (1 - ss) * color; // green
 
 	ss = smoothstep(8.0f, 13.5f, pos.y);
@@ -33,7 +33,7 @@ vec3 getPlainsColor() {
 vec3 getCrystalMountainColor() {
 	vec3 color = vec3(0.2f, 0.2f, 0.7f); // blue
 
-	float ss = smoothstep(-1.5f, -0.0f, pos.y);
+	float ss = smoothstep(0.0f, 0.5f, pos.y);
 	color = ss * vec3(0.2f, 0.7f, 0.2f) + (1 - ss) * color; // green
 
 	ss = smoothstep(5.0f, 9.5f, pos.y);

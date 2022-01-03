@@ -19,12 +19,16 @@ class CrystalChunk {
 public:
 	CrystalChunk(const glm::vec3& pos, const glm::vec3& dir);
 
+	~CrystalChunk();
+
 	void draw();
 
 private:
 	class Crystal {
 	public:
 		Crystal(const glm::vec3& pos, const glm::vec3& dir);
+
+		~Crystal();
 
 		void draw();
 

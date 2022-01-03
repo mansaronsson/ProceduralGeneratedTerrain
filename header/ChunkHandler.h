@@ -9,10 +9,12 @@
 #include <thread>
 #include <mutex>
 #include <future>
+#include <cstdlib>
 
 #include "BoundingBox.h"
 #include "BiomeMap.h"
 #include "enums.h"
+#include "CrystalChunk.h"
 
 
 class ChunkHandler {
@@ -47,6 +49,12 @@ public:
 	void drawBoundingBox() {
 		for (auto chunk : chunks) {
 			chunk->drawBoundingBox();
+		}
+	}
+
+	void drawCrystals() {
+		for (auto chunk : chunks) {
+			chunk->drawCrystals();
 		}
 	}
 
@@ -113,8 +121,9 @@ private:
 
 		void draw(int _lod) {
 			if (drawChunk) {
-				if(_lod == lod)
+				if (_lod == lod) {
 					mesh.draw(GL_TRIANGLES);
+				}
 				else
 				{
 					if(higherLod != nullptr)
@@ -124,6 +133,15 @@ private:
 				}
 			}
 		}
+
+		void drawCrystals() {
+			if (drawChunk && lod == 1) {
+				for (auto c : crystalChunks) {
+					c->draw();
+				}
+			}
+		}
+
 		void drawBoundingBox() {
 			if (drawChunk)
 				boundingBox.draw();
@@ -188,11 +206,13 @@ private:
 		std::vector<unsigned int> indices;
 		std::vector<glm::vec3> points;
 		glm::vec3 color;
+		std::vector<std::pair<glm::vec3, glm::vec3>> crystalSpots;
 
 		Mesh mesh;
 		BoundingBox boundingBox;
-		Chunk* higherLod;
+		std::vector<CrystalChunk*> crystalChunks;
 
+		Chunk* higherLod;
 		BiomeMap* m_mapPtr;
 	};
 	/*End of chunk class*/
