@@ -1,5 +1,6 @@
 #pragma once
-#include <glm/gtx/rotate_vector.hpp>
+#include <glm/gtc/noise.hpp>
+#include <glm/gtx/transform.hpp>
 
 #include <vector>
 #include <iostream>
@@ -21,6 +22,7 @@ public:
 
 	~CrystalChunk();
 
+	void bake();
 	void draw();
 
 private:
@@ -30,9 +32,13 @@ private:
 
 		~Crystal();
 
+		void bake();
 		void draw();
 
 	private:
+		std::vector<unsigned int> m_indices;
+		std::vector<Vertex> m_vertices;
+
 		Mesh mesh;
 	};
 

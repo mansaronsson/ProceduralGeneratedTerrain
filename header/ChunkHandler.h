@@ -52,9 +52,12 @@ public:
 		}
 	}
 
-	void drawCrystals() {
+	void drawCrystals(const glm::vec3& camposition) {
 		for (auto chunk : chunks) {
-			chunk->drawCrystals();
+			auto p1 = chunk->getPostition(chunk->index(chunk->nrVertices / 2, chunk->nrVertices / 2));
+			int lod = computeLOD(camposition, p1);
+			if(lod == 1 && chunk->drawChunk)
+				chunk->drawCrystals();
 		}
 	}
 
@@ -135,10 +138,8 @@ private:
 		}
 
 		void drawCrystals() {
-			if (drawChunk && lod == 1) {
-				for (auto c : crystalChunks) {
-					c->draw();
-				}
+			for (auto c : crystalChunks) {
+				c->draw();
 			}
 		}
 
@@ -206,7 +207,6 @@ private:
 		std::vector<unsigned int> indices;
 		std::vector<glm::vec3> points;
 		glm::vec3 color;
-		std::vector<std::pair<glm::vec3, glm::vec3>> crystalSpots;
 
 		Mesh mesh;
 		BoundingBox boundingBox;

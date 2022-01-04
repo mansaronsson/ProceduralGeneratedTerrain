@@ -35,34 +35,35 @@ glm::vec3 ChunkHandler::Chunk::createPointWithNoise(const std::vector<unsigned s
 	/*** Apply noise to the height i.e. y component using fbm depending on biome ***/
 
 	float seed = 5.721;
+	float groundlevel = 0.0f;
 
 	/* Settings change depending on biome */
 	// gain: How much to increase / decrease each octave
 	// lacunarity: How much to increase / decrease frequency each octave i.e. how big steps to take in the noise space
 
 	// Desert settings
-	float desert_octaves = 2;
-	float desert_noiseSum = 5.0f;
-	float desert_amplitude = 2.0f;
-	float desert_gain = 0.6f;
+	float desert_octaves = 3;
+	float desert_noiseSum = 2.0f;
+	float desert_amplitude = 4.0f;
+	float desert_gain = 0.3f;
 	float desert_lacunarity = 2.0f;
-	float desert_freq = 0.04f;
+	float desert_freq = 0.051f;
 
 	// Plains settings
-	float plains_octaves = 4;
-	float plains_noiseSum = 4.0f;
+	float plains_octaves = 3;
+	float plains_noiseSum = 2.0f;
 	float plains_amplitude = 4.0f;
-	float plains_gain = 0.3;
-	float plains_lacunarity = 2.0;
-	float plains_freq = 0.02f;
+	float plains_gain = 0.3f;
+	float plains_lacunarity = 2.0f;
+	float plains_freq = 0.051f;
 
 	// crystalMountain settings
-	float crystal_octaves = 10;
-	float crystal_noiseSum = 25.0f;
-	float crystal_amplitude = 30.0f;
+	float crystal_octaves = 8;
+	float crystal_noiseSum = 6.0f;
+	float crystal_amplitude = 6.0f;
 	float crystal_gain = 0.5f;
 	float crystal_lacunarity = 3.0f;
-	float crystal_freq = 0.0021f;
+	float crystal_freq = 0.0051f;
 
 	// Biome interpolation
 	float nNeighbours = biomeNeighbours[desert] + biomeNeighbours[plains] + biomeNeighbours[crystalMountain];
@@ -71,11 +72,11 @@ glm::vec3 ChunkHandler::Chunk::createPointWithNoise(const std::vector<unsigned s
 	float crystal_weight = biomeNeighbours[crystalMountain] / nNeighbours;
 
 	int octaves = static_cast<int>(desert_weight * desert_octaves + plains_weight * plains_octaves + crystal_weight * crystal_octaves);
-	int lacunarity = static_cast<int>(desert_weight * desert_lacunarity + plains_weight * plains_lacunarity + crystal_weight * crystal_lacunarity);
-	float groundlevel = 0.0f;
-	float amplitude = desert_weight * desert_amplitude + plains_weight * plains_amplitude + crystal_weight * crystal_amplitude;
-	float gain = desert_weight * desert_gain + plains_weight * plains_gain + crystal_weight * crystal_gain;
-	float freq = desert_weight * desert_freq + plains_weight * plains_freq + crystal_weight * crystal_freq;
+
+	//int lacunarity = static_cast<int>(desert_weight * desert_lacunarity + plains_weight * plains_lacunarity + crystal_weight * crystal_lacunarity);
+	//float amplitude = desert_weight * desert_amplitude + plains_weight * plains_amplitude + crystal_weight * crystal_amplitude;
+	//float gain = desert_weight * desert_gain + plains_weight * plains_gain + crystal_weight * crystal_gain;
+	//float freq = desert_weight * desert_freq + plains_weight * plains_freq + crystal_weight * crystal_freq;
 
 
 	for (int i = 0; i < octaves; ++i) {
@@ -106,16 +107,18 @@ glm::vec3 ChunkHandler::Chunk::createPointWithNoise(const std::vector<unsigned s
 	//	amplitude *= gain;
 	//}
 
+	if (noiseSum < groundlevel) {
+		if (desert_weight > 0.0f)
+			noiseSum = desert_weight * abs(noiseSum);
+		else
+			noiseSum = groundlevel;
+	}
 
-	float noiseY = noiseSum;
-	if (noiseY < groundlevel)
-		noiseY = groundlevel;
-
-	glm::vec3 pos{ x, noiseY, z };
+	glm::vec3 pos{ x, noiseSum, z };
 
 	if (minY != nullptr && maxY != nullptr) {
-		*minY = *minY > noiseY ? noiseY : *minY;
-		*maxY = *maxY < noiseY ? noiseY : *maxY;
+		*minY = *minY > noiseSum ? noiseSum : *minY;
+		*maxY = *maxY < noiseSum ? noiseSum : *maxY;
 	}
 	return pos;
 }
@@ -167,8 +170,8 @@ void ChunkHandler::Chunk::bakeMeshes() {
 	mesh = Mesh{ vertices, indices };
 	boundingBox = BoundingBox{ points };
 
-	for (const std::pair<glm::vec3, glm::vec3> &cs : crystalSpots) {
-		crystalChunks.push_back(new CrystalChunk{ cs.first, cs.second });
+	for ( auto c : crystalChunks ) {
+		c->bake();
 	}
 
 	if (higherLod)
@@ -436,15 +439,17 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 	if (lod == 1) {
 		for (int depth = 1; depth < nrVertices - 1; ++depth) {
 			for (int width = 1; width < nrVertices - 1; ++width) {
-				double r = static_cast<double>(std::rand()) / RAND_MAX;
-				if (r < 0.00001) {
-					Vertex temp = vertices[index(width, depth)];
-					glm::vec3 pos = temp.position;
-					auto biomeNeighbours = m_mapPtr->countNeighbours(pos.x, pos.z);
 
-					if (biomeNeighbours[0] == 0 && biomeNeighbours[1] == 0) {
-						glm::vec3 dir = temp.normal;
-						crystalSpots.push_back({ pos, dir });
+				Vertex temp = vertices[index(width, depth)];
+				float r = glm::simplex(temp.position);
+				//std::cout << r << "\n";
+
+				if (r < -0.7f) {
+					auto biomeNeighbours = m_mapPtr->countNeighbours(temp.position.x, temp.position.z);
+
+
+					if (biomeNeighbours[0] == 0 && biomeNeighbours[1] == 0 && temp.position.y > 4.0f && temp.position.y < 5.5f) {
+						crystalChunks.push_back(new CrystalChunk{ temp.position - 0.005f * temp.normal, temp.normal });
 					}
 				}
 			}

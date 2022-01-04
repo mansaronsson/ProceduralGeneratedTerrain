@@ -12,5 +12,5 @@ void main() {
 	lightdir = normalize(lightdir);
 	float k = max(dot(normal, lightdir), 0.0);
 
-	outColor = k * vec4(0.8f, 0.0f, 0.4f, 0.5f);
+	outColor = (0.5f + k * 0.5f) * vec4(0.8f, 0.0f, 0.4f, 0.8f);
 }

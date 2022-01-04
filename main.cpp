@@ -30,9 +30,9 @@ void updateCamera2();
 void printmat4(const glm::mat4& mat);
 
 //settings
-int constexpr gridSize{ 3 };
-int constexpr nrVertices{ 161 };
-float constexpr spacing{ 0.2 };
+int constexpr gridSize{ 11 };
+int constexpr nrVertices{ 81 };
+float constexpr spacing{ 0.15 };
 
 const unsigned int SCREEN_WIDTH = 1600, SCREEN_HEIGHT = 900;
 
@@ -107,7 +107,8 @@ int main() {
 
     //65
     ChunkHandler chandler{gridSize, nrVertices, spacing};   // (gridSize, nrVertices, spacing)
-    CrystalChunk crys{ glm::vec3{0.0f}, {0.0f, 1.0f, 0.0f} };
+    //CrystalChunk crys{ glm::vec3{0.0f, 2.0f, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f} };
+    //crys.bake();
 
     //OpenGL render Settings
     glEnable(GL_DEPTH_TEST);
@@ -215,8 +216,15 @@ int main() {
         crystalShader.setMat4("M", modelM);
         toggleCamera ? crystalShader.setMat4("V", camera1) : crystalShader.setMat4("V", camera2);
         toggleCamera ? crystalShader.setMat4("P", perspective) : crystalShader.setMat4("P", perspective2);
-        //chandler.drawCrystals();
-        crys.draw();
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        chandler.drawCrystals(camera1Control.getCameraPosition());
+        //crys.draw();
+
+        glDisable(GL_BLEND);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

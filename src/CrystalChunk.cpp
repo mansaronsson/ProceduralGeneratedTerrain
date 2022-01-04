@@ -3,8 +3,10 @@
 
 CrystalChunk::CrystalChunk(const glm::vec3& pos, const glm::vec3& dir) {
 	
-	// 1-5
-	int nStems = 1;
+	float rand = abs(glm::simplex(pos * 2.0f));
+	int nStems = static_cast<int>(1 + 6.0f * rand);
+
+	glm::mat4 M;
 
 	for (int stem = 0; stem < nStems; stem++)
 	{
@@ -14,14 +16,18 @@ CrystalChunk::CrystalChunk(const glm::vec3& pos, const glm::vec3& dir) {
 		}
 		else if (nStems > 3) {
 			stemDir = glm::normalize(dir + glm::cross(dir, glm::vec3{ 1.0f, 0.0f, 0.0f }));
-			stemDir = glm::rotate(stemDir, static_cast<float>(M_PI) * 2 * (stem-1) / (nStems-1), dir);
+			M = glm::rotate(static_cast<float>(M_PI) * 2 * (stem - 1) / (nStems - 1), dir);
+			//stemDir = glm::rotate(stemDir, static_cast<float>(M_PI) * 2 * (stem-1) / (nStems-1), dir);
+			stemDir = M * glm::vec4{ stemDir, 1.0f };
 		}
 		else {
 			stemDir = glm::normalize(dir + glm::cross(dir, glm::vec3{ 1.0f, 0.0f, 0.0f }));
-			stemDir = glm::rotate(stemDir, static_cast<float>(M_PI) * 2 * stem / nStems, dir);
+			M = glm::rotate(static_cast<float>(M_PI) * 2 * stem / nStems, dir);
+			//stemDir = glm::rotate(stemDir, static_cast<float>(M_PI) * 2 * stem / nStems, dir);
+			stemDir = M * glm::vec4{ stemDir, 1.0f };
 		}
 
-		crystals.push_back(new Crystal{pos, stemDir});
+		crystals.push_back(new Crystal{ pos, glm::vec3{stemDir} });
 	}
 }
 
@@ -33,6 +39,13 @@ CrystalChunk::~CrystalChunk()
 	}
 }
 
+void CrystalChunk::bake()
+{
+	for (auto c : crystals) {
+		c->bake();
+	}
+}
+
 void CrystalChunk::draw() {
 	for (auto c : crystals) {
 		c->draw();
@@ -41,113 +54,124 @@ void CrystalChunk::draw() {
 
 CrystalChunk::Crystal::Crystal(const glm::vec3& pos, const glm::vec3& dir) {
 
-	std::vector<Vertex> vertices;
-	std::vector<unsigned int> indices;
-	glm::vec3 color;
-
-	// for each stem
-	float baseWidth = 1.0f;
-	float midWidth = 2.0f;
-
-	float midLength = 3.0f;
-	float topLength = 5.0f;
-
 	// 3-8
-	int nSides = 8;
+	float rand = abs(glm::simplex(pos * 3.0f));
+	int nSides = static_cast<int>(3 + 7.0f * rand);
+	// 0.05-0.15
+	rand = abs(glm::simplex(pos * 4.0f));
+	float baseWidth = 0.01f + 0.03f * rand;
+	// 0.1-0.2
+	rand = abs(glm::simplex(pos * 5.0f));
+	float midWidth = 0.02f + 0.05f * rand;
+	// 0.1-0.2
+	rand = abs(glm::simplex(pos * 6.0f));
+	float midLength = 0.02f + 0.08f * rand;
+	// 0.5-0.8
+	rand = abs(glm::simplex(pos * 7.0f));
+	float topLength = 0.1f + 0.1f * rand;
 
 	// vertices
-	vertices.push_back({ pos });	// start
+	m_vertices.push_back({ pos });	// start
 
 	glm::vec3 startAngle = glm::cross(dir, glm::vec3{ 1.0f, 0.0f, 0.0f });
+	glm::mat4 M;
 
 	for (int side = 0; side < nSides; ++side) {
 
 		Vertex vb{ pos + startAngle * baseWidth / 2.0f };
 		Vertex vm{ pos + startAngle * midWidth / 2.0f + dir * midLength };
-		vb.position = glm::rotate(vb.position, static_cast<float>(M_PI) * 2 * side / nSides, dir);
-		vm.position = glm::rotate(vm.position, static_cast<float>(M_PI) * 2 * side / nSides, dir);
+
+		M = glm::translate(pos);
+		M = glm::rotate(M, static_cast<float>(M_PI) * 2 * side / nSides, dir);
+		M = glm::translate(M, -pos);
+
+		vb.position = M * glm::vec4{ vb.position, 1.0f };
+		vm.position = M * glm::vec4{ vm.position, 1.0f };
 
 		// base
-		vertices.push_back(vb);
-		vertices.push_back(vb);
-		vertices.push_back(vb);
+		m_vertices.push_back(vb);
+		m_vertices.push_back(vb);
+		m_vertices.push_back(vb);
 
 		// mid
-		vertices.push_back(vm);
-		vertices.push_back(vm);
-		vertices.push_back(vm);
-		vertices.push_back(vm);
+		m_vertices.push_back(vm);
+		m_vertices.push_back(vm);
+		m_vertices.push_back(vm);
+		m_vertices.push_back(vm);
 	
 		// end
-		vertices.push_back({ pos + dir * topLength });
+		m_vertices.push_back({ pos + dir * topLength });
 	}
 
 	// normals
-	vertices[0].normal = -dir;
+	m_vertices[0].normal = glm::normalize(-dir);
 	for (size_t i = 0; i < nSides; ++i) {
 
 		// base
-		vertices[i * 8 + 1].normal = -dir;
+		m_vertices[i * 8 + 1].normal = glm::normalize(-dir);
 
 		// middle
-		glm::vec3 e1 = vertices[i * 8 + 6].position - vertices[i * 8 + 2].position;
+		glm::vec3 e1 = m_vertices[i * 8 + 6].position - m_vertices[i * 8 + 2].position;
 		size_t temp = i * 8 + 10;
-		glm::vec3 e2 = vertices[temp > nSides * 8 ? temp - nSides * 8 : temp].position - vertices[i * 8 + 2].position;
-		glm::vec3 n = glm::cross(e2, e1);
+		glm::vec3 e2 = m_vertices[temp > nSides * 8 ? temp - nSides * 8 : temp].position - m_vertices[i * 8 + 2].position;
+		glm::vec3 n = glm::normalize(glm::cross(e2, e1));
 
-		vertices[i * 8 + 2].normal = n;
-		vertices[i * 8 + 6].normal = n;
+		m_vertices[i * 8 + 2].normal = n;
+		m_vertices[i * 8 + 6].normal = n;
 		temp = i * 8 + 11;
-		vertices[temp > nSides * 8 ? temp - nSides * 8 : temp].normal = n;
+		m_vertices[temp > nSides * 8 ? temp - nSides * 8 : temp].normal = n;
 		temp = i * 8 + 15;
-		vertices[temp > nSides * 8 ? temp - nSides * 8 : temp].normal = n;
+		m_vertices[temp > nSides * 8 ? temp - nSides * 8 : temp].normal = n;
 
 		// top
-		e1 = vertices[i * 8 + 8].position - vertices[i * 8 + 4].position;
+		e1 = m_vertices[i * 8 + 8].position - m_vertices[i * 8 + 4].position;
 		temp = i * 8 + 13;
-		e2 = vertices[temp > nSides * 8 ? temp - nSides * 8 : temp].position - vertices[i * 8 + 4].position;
-		n = glm::cross(e2, e1);
+		e2 = m_vertices[temp > nSides * 8 ? temp - nSides * 8 : temp].position - m_vertices[i * 8 + 4].position;
+		n = glm::normalize(glm::cross(e2, e1));
 
-		vertices[i * 8 + 4].normal = n;
-		vertices[i * 8 + 8].normal = n;
+		m_vertices[i * 8 + 4].normal = n;
+		m_vertices[i * 8 + 8].normal = n;
 		temp = i * 8 + 13;
-		vertices[temp > nSides * 8 ? temp - nSides * 8 : temp].normal = n;
+		m_vertices[temp > nSides * 8 ? temp - nSides * 8 : temp].normal = n;
 	}
 
 	// indices
 	for (unsigned int i = 0; i < nSides; ++i) {
 
 		// base
-		indices.push_back(0);
+		m_indices.push_back(0);
 		unsigned int temp = i * 8 + 9;
-		indices.push_back(temp > nSides * 8 ? temp - nSides * 8 : temp);
-		indices.push_back(i * 8 + 1);
+		m_indices.push_back(temp > nSides * 8 ? temp - nSides * 8 : temp);
+		m_indices.push_back(i * 8 + 1);
 
 		// middle
-		indices.push_back(i * 8 + 2);
+		m_indices.push_back(i * 8 + 2);
 		temp = i * 8 + 11;
-		indices.push_back(temp > nSides * 8 ? temp - nSides * 8 : temp);
-		indices.push_back(i * 8 + 6);
+		m_indices.push_back(temp > nSides * 8 ? temp - nSides * 8 : temp);
+		m_indices.push_back(i * 8 + 6);
 
-		indices.push_back(i * 8 + 6);
+		m_indices.push_back(i * 8 + 6);
 		temp = i * 8 + 11;
-		indices.push_back(temp > nSides * 8 ? temp - nSides * 8 : temp);
+		m_indices.push_back(temp > nSides * 8 ? temp - nSides * 8 : temp);
 		temp = i * 8 + 15;
-		indices.push_back(temp > nSides * 8 ? temp - nSides * 8 : temp);
+		m_indices.push_back(temp > nSides * 8 ? temp - nSides * 8 : temp);
 
 		// top
-		indices.push_back(i * 8 + 4);
+		m_indices.push_back(i * 8 + 4);
 		temp = i * 8 + 13;
-		indices.push_back(temp > nSides * 8 ? temp - nSides * 8 : temp);
-		indices.push_back(i * 8 + 8);
+		m_indices.push_back(temp > nSides * 8 ? temp - nSides * 8 : temp);
+		m_indices.push_back(i * 8 + 8);
 	}
-
-	mesh = Mesh{ vertices, indices };
 }
 
 CrystalChunk::Crystal::~Crystal()
 {
 	mesh.deleteMesh();
+}
+
+void CrystalChunk::Crystal::bake()
+{
+	mesh = Mesh{ m_vertices, m_indices };
 }
 
 void CrystalChunk::Crystal::draw() {
