@@ -3,9 +3,11 @@
 
 
 float triERROR = 0.0f, crossERROR = 0.0f;
-ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, float _spacing, float _yscale, std::function<void(ChunkHandler&, float,float,float,float)> func)
-	: gridSize{ (_gridSize % 2 == 0 ? (_gridSize + 1) : _gridSize) }, nrVertices{ _nrVertices }, spacing{ _spacing }, yscale{ _yscale }, currentChunk{ nullptr },
-	callbackfunc{ func }
+
+ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, float _spacing,
+	std::function<void(ChunkHandler&, float,float,float,float)> func, const Biome& _biomeGenerator)	
+		: gridSize{ (_gridSize % 2 == 0 ? (_gridSize + 1) : _gridSize) }, nrVertices{ _nrVertices }, spacing{ _spacing }, currentChunk{ nullptr },
+		callbackfunc{ func }, biomeGenerator{ _biomeGenerator }
 {
 	//unsigned int size = nrVertices; //two extra rows / columns for the skirts
 	unsigned int lod = 1;
@@ -16,7 +18,7 @@ ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, flo
 		for (int col = 0; col < gridSize; ++col) {
 			float xpos = -width * (static_cast<float>(gridSize) / 2.0f) + col * width;
 
-			chunks.push_back(new Chunk{ nrVertices, lod, xpos, zpos, spacing, index(col, row, gridSize) });
+			chunks.push_back(new Chunk{ nrVertices, lod, xpos, zpos, spacing, index(col, row, gridSize), biomeGenerator});
 			chunks.back()->bakeMeshes();
 
 			//Create trees in new chunk using callback function, p1 - p2 creates bounding grid 
@@ -132,133 +134,12 @@ glm::vec3 ChunkHandler::Chunk::setColorFromLOD() {
 	}
 }
 
-
-/* noise map testing */
-struct NoiseMap {
-#include <glm/gtc/noise.hpp>
-	int octaves;
-	float amplitude;
-	float gain;
-	float lacunarity;
-	float frequency;
-	float seed;
-
-	float evaluate(float x, float z) {
-		float noiseSum = 0.0f;
-
-		for (int i = 0; i < octaves; ++i) {
-			noiseSum += amplitude * glm::perlin(glm::vec3((x + 1) * frequency, (z + 1) * frequency, seed));
-			frequency *= lacunarity;
-			amplitude *= gain;
-		}
-
-		return noiseSum;
-	}
-};
-
-
-const std::string temperatureString[2]{ "cold", "hot" };
-const std::string moistureString[2]{ "wet", "dry" };
-const std::string biomeString[4]{ "ice", "tundra", " woodland", "desert" };
-const glm::vec3 colors[4]{ glm::vec3{0.3f, 1.0f, 1.0f}, glm::vec3{0.3f, 1.0f, 0.7f}, glm::vec3{0.15f, 0.5f, 0.08f}, glm::vec3{1.0f, 0.7f, 0.1f} };
-const glm::vec3 tempcolors[2]{ glm::vec3{0.0f, 0.5f, 1.0f}, glm::vec3{1.0f, 0.1f, 0.0f} };
-const glm::vec3 moistcolors[2]{ glm::vec3{0.0f, 0.5f, 1.0f}, glm::vec3{0.2f, 1.0f, 0.2f} };
-
-const float coldValue = 0.0f, wetValue = 0.0f;
-
-enum class Temperature
-{
-	cold, hot
-};
-
-enum Moisture {
-	wet, dry
-};
-
-enum BiomeType {
-	ice, tundra, woodland, desert
-};
-
-BiomeType computeBiome(Temperature temp, Moisture moist) {
-	BiomeType biomeTable[2][2]{
-		//Cold          //Hot
-		BiomeType::ice, BiomeType::tundra,     //Wet
-		BiomeType::woodland, BiomeType::desert //Dry
-	};
-
-	return biomeTable[(int)temp][(int)moist];
-}
-void testBiome(Temperature temp, Moisture moist) {
-	std::cout << temperatureString[(int)temp] << " and " << moistureString[(int)moist] << " creates " << biomeString[computeBiome(temp, moist)] << "\n\n";
-}
-
-
-Temperature getTemperatureAtValue(float val) {
-	if (val < coldValue)
-		return Temperature::cold;
-	else
-		return Temperature::hot;
-}
-Moisture getMoistureAtValue(float val) {
-	if (val < wetValue)
-		return Moisture::wet;
-	else
-		return Moisture::dry;
-}
-void getColorFromBiome(Vertex& v, float x, float z) {
-
-	/*
-	int octaves;
-	float amplitude;
-	float gain;
-	float lacunarity;
-	float frequency;
-	float seed;
-	*/
-	NoiseMap heatMap{ 1, 1.0f, 0.5f, 2.0f, 0.013f, 0.1f };
-	NoiseMap moistMap{ 2, 1.0f, 0.5f, 2.0f, 0.024f, 1.137f };
-
-	float heatValue = heatMap.evaluate(x, z);
-	float moistValue = moistMap.evaluate(x, z);
-
-	//std::cout << heatValue << "  " << moistValue << '\n';
-
-	Temperature heat = getTemperatureAtValue(heatValue);
-	Moisture moist = getMoistureAtValue(moistValue);
-
-	BiomeType biome = computeBiome(heat, moist);
-
-	
-	v.biomecolor = colors[(int)biome];
-	v.heatcolor = tempcolors[(int)heat];
-	v.moistcolor = moistcolors[(int)moist];
-}
-
-//struct Biome {
-//
-//	Biome(float x, float z) {
-//		evaluate(x, z);
-//	}
-//
-//	BiomeType evaluate(float x, float z) {
-//		float heatValue = heatMap.evaluate(x, z);
-//		float moistValue = moistMap.evaluate(x, z);
-//
-//		//std::cout << "at x: " << x << " z: " << z << " heat is: " << heatValue << " and moist is " << moistValue << '\n';
-//
-//		//testBiome(heat, moist);
-//		//return computeBiome(heat, moist);
-//	}
-//
-//};
-
-
-ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int _id) :
-	lod{ _lod }, nrVertices { (_nrVertices - 1) / _lod + 3 }, XPOS{ xpos }, ZPOS{ zpos }, SPACING{ _spacing * _lod }, id{ _id } {
+ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int _id, const Biome& _biomeGenerator) :
+	lod{ _lod }, nrVertices{ (_nrVertices - 1) / _lod + 3 }, XPOS{ xpos }, ZPOS{ zpos }, SPACING{ _spacing * _lod }, id{ _id }, biomeGenerator{ _biomeGenerator } {
 	int MAXLOD = 16;
 	unsigned int newLod = _lod * 2;
 	if (newLod <= MAXLOD)
-		higherLod = new Chunk{ _nrVertices, newLod, xpos, zpos, _spacing, 0 };
+		higherLod = new Chunk{ _nrVertices, newLod, xpos, zpos, _spacing, 0, biomeGenerator };
 		//auto future = std::async(generateLOD, this, _nrVertices, newLod, xpos, zpos, _spacing, _id);
 		//Chunk* temp = future.get();
 	else
@@ -302,10 +183,11 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 			else //Non edges compute noise value for the y-component
 			{
 				auto pos = createPointWithNoise(x, z, &minY, &maxY);
+				auto pos2 = biomeGenerator.computeVertexPointFromBiomes(x, z);
 				vertices.push_back({ pos });
 			}
 			//Set vertex color based on distance
-			getColorFromBiome(vertices.back(), x, z);
+			biomeGenerator.getColorFromBiome(vertices.back(), x, z);
 			vertices.back().color = color;
 			if (depth == 0 || depth == nrVertices - 1 || width == 0 || width == nrVertices - 1) //edges of grid ie. skirts
 			{
@@ -492,7 +374,18 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 		}
 	}
 
+	glm::vec3 ground{ 0.0f, 1.0f, 0.0f };
+	for (Vertex& vert : vertices) {
+		float angle = std::acosf(glm::dot(vert.normal, ground)) * 180 / 3.14f;
+		if (angle < 40 && vert.position.y > -1.5f)
+		{
+			vert.normalcolor = glm::vec3{ 0.0f, 1.0f, 0.0f };
+		}
+		else
+			vert.normalcolor = glm::vec3{ 1.0f, 0.0f, 0.0f };
+	}
 	/*Temporary set color according to angle between normal and ground*/
+	/*
 	glm::vec3 ground{ 0.0f, 1.0f, 0.0f };
 
 	float crosserror = 0.0f;
@@ -541,11 +434,12 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 		//else
 		//	vert.color = glm::vec3{ 1.0f, 0.0f, 0.0f };
 	}
-	
+
 	//std::cout << "Triangle error: " << triangleerror / vertices.size() << " cross error: " << crosserror / vertices.size() << '\n';
 	triERROR += triangleerror / vertices.size();
 	crossERROR += crosserror / vertices.size();
 	//mesh = Mesh{ vertices, indices }; 
+	*/
 
 	//create boundingbox ignoring the extra row and column added by the skirts
 	//max x and z already had size - 1 before skirts were added 
@@ -632,17 +526,16 @@ chunkChecker ChunkHandler::checkChunk(const glm::vec3& camPos)
 /// <param name="inside"></param>
 void ChunkHandler::generateChunk(const std::pair<float, float>& newPos, unsigned int nrVeritices, float _spacing, unsigned int id, chunkChecker cc)
 {
-	Chunk* chunk = new Chunk{ nrVertices, 1, newPos.first, newPos.second, _spacing, id };
+	Chunk* chunk = new Chunk{ nrVertices, 1, newPos.first, newPos.second, _spacing, id, biomeGenerator };
 	//std::future<Chunk*> ret = std::async();
 
 	renderQ.push({ chunk, cc });
 }
 
 ChunkHandler::Chunk* ChunkHandler::Chunk::generateLOD(unsigned int nrVerticies, unsigned int _lod, float xpos, float zpos, float _spacing, unsigned int id) {
-	Chunk* chunkLOD = new Chunk{ nrVerticies, _lod, xpos, zpos, _spacing, id };
+	Chunk* chunkLOD = new Chunk{ nrVerticies, _lod, xpos, zpos, _spacing, id, biomeGenerator };
 	return chunkLOD;
 }
-
 
 /// <summary>
 /// Updates which chunks that are rendered based on camera position. New chunks are genereted by multi-threading.

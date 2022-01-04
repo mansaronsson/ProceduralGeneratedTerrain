@@ -35,7 +35,7 @@ void printmat4(const glm::mat4& mat);
 int constexpr gridSize{ 5 };
 int constexpr nrVertices{ 161 };
 float constexpr spacing{ 0.075f };
-int constexpr NROFTREES{ 1 };
+int constexpr NROFTREES{ 3 };
 
 const unsigned int SCREEN_WIDTH = 800, SCREEN_HEIGHT = 600;
 
@@ -45,29 +45,41 @@ CameraControl camera1Control{ glm::vec3{ 0.0f, 1.0f, 0.0f } };
 float deltaTime = 0.0f, lastFrame = 0.0f;
 bool cull = false, useLOD = true, wireFrame = false, drawbb = false;
 
-float heat = false, moist = false, biome = false;
+bool heat = false, moist = false, biome = false, normal = false;
 
 
 //Callback function to create new trees when generating new chunk
 struct TreeGenerator {
     unsigned int ID;
-    //std::vector<std::pair<unsigned int, int>>& trees;
     std::vector<Tree*>& trees;
+
+    Biome& biomeGenerator;
 
     /// <summary>
     /// Creates a new tree inside the bounding box of min - max x and z
     /// </summary>
     void operator()(ChunkHandler& chandler, float minX, float maxX, float minZ, float maxZ) {
         for (int i = 0; i < nroftrees; i++) {
-            float x = random(minX, maxX);
-            float z = random(minZ, maxZ);
-            glm::vec3 offset{ 0.0f, -0.1f, 0.0f };
-            glm::vec3 position = chandler.getPointOnTerrain(x, z) + offset;
-
             //validate position
-            Biome biome{};
+            //TODO find more efficient method of finding a valid position 
+            bool validposition = false;
+            glm::vec3 position{ 0.0f };
+            int iterations = 0;
+            do {
+                float x = random(minX, maxX);
+                float z = random(minZ, maxZ);
+                glm::vec3 offset{ 0.0f, -0.1f, 0.0f };
+                position = chandler.getPointOnTerrain(x, z) + offset;
+                validposition = validate(position, chandler);
+
+                ++iterations;
+
+            } while (!validposition);
+
+            //std::cout << "it took " << iterations << " iterations to find correct position \n";
+            
             //Give position to Biome map determine biome 
-            auto biomeType = biome.getBiomeAtPosition(x, z);
+            auto biomeType = biomeGenerator.getBiomeAtPosition(position.x, position.z);
 
             //create tree depending on what biome it is
             auto tree = Tree::Create(biomeType, ID, position);
@@ -82,11 +94,28 @@ private:
     float random(float low, float high) {
         return low + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (high - low)));
     }
+
+    bool validate(const glm::vec3& p, ChunkHandler& chandler) {
+        if (p.y <= -1.5f)
+            return false;
+
+        float offset = 0.1f;
+        auto n = chandler.getPointOnTerrain(p.x, p.z - offset);
+        auto s = chandler.getPointOnTerrain(p.x, p.z + offset);
+        auto w = chandler.getPointOnTerrain(p.x - offset, p.z);
+        auto e = chandler.getPointOnTerrain(p.x + offset, p.z);
+
+        auto e1 = n - s;
+        auto e2 = w - e;
+        glm::vec3 normal_cross = glm::normalize(glm::cross(e1, e2));
+        glm::vec3 ground{ 0.0f, 1.0f, 0.0f };
+        float crossAngle = std::acosf(glm::dot(normal_cross, ground)) * 180 / 3.14f;
+
+        return crossAngle < 40;
+    }
 };
 
 int main() {
-
-
     initialize();
     //create window
     GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Procedural Terrain", NULL, NULL);
@@ -146,8 +175,9 @@ int main() {
     //std::vector<std::pair<GLuint, int>> trees;
     std::vector<Tree*> trees;
     trees.reserve(100);
-    TreeGenerator treeGenerator{ treeShader.ID, trees };
-    ChunkHandler chandler{gridSize, nrVertices, spacing , 1.8f , treeGenerator};   // (gridSize, nrVertices, spacing, yScale)
+    Biome biomeGenerator{};
+    TreeGenerator treeGenerator{ treeShader.ID, trees, biomeGenerator };
+    ChunkHandler chandler{gridSize, nrVertices, spacing , treeGenerator, biomeGenerator};   // (gridSize, nrVertices, spacing, yScale)
     
     //OpenGL render Settings
     glEnable(GL_DEPTH_TEST);
@@ -158,18 +188,6 @@ int main() {
     *****************/
 
     float timer{ 0.0f };
-
-    //testBiome(cold, wet);
-    //testBiome(cold, dry);
-    //testBiome(hot, wet);
-    //testBiome(hot, dry);
-
-    //for (int i = 0; i < 10; i++) {
-    //    float x = spacing * i * 10;
-    //    float z = spacing * i * 5;
-
-    //    Biome{ x,z };
-    //}
     
     while (!glfwWindowShouldClose(window))
     {
@@ -242,6 +260,8 @@ int main() {
             myShader.setBool("moist", moist);
         if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS)
             myShader.setBool("biome", biome);
+        if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS)
+            myShader.setBool("normalC", normal);
 
         if (wireFrame) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -422,6 +442,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     if (key == GLFW_KEY_3 && action == GLFW_PRESS) {
         biome = !biome;
     }
+    if (key == GLFW_KEY_4 && action == GLFW_PRESS) {
+        normal = !normal;
+    }
+
 }
 
 void mouse_position_callback(GLFWwindow* window, double xpos, double ypos) {

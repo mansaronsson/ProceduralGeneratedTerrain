@@ -20,7 +20,7 @@ public:
     }
 
 protected: 
-    Tree(unsigned int _shaderID, const glm::vec3& pos) : shaderID{ _shaderID }, position{ pos } { }
+    Tree(unsigned int _shaderID, const glm::vec3& pos) : shaderID{ _shaderID }, position{ pos }, modelID{ 0 }, nrVertices{ 0 } { }
 
     /// <summary>
     /// Creates a tree with root at position for shader with ID 

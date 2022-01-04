@@ -5,12 +5,13 @@ layout (location = 2) in vec3 color;
 layout (location = 3) in vec3 heatColor;
 layout (location = 4) in vec3 moistColor;
 layout (location = 5) in vec3 biomeColor;
+layout (location = 6) in vec3 normalColor;
 
 
 out vec3 o_normal;
 out vec3 pos;
 out vec3 o_color;
-out vec3 heatcolor, moistcolor, biomecolor;
+out vec3 heatcolor, moistcolor, biomecolor, normalcolor;
 
 uniform mat4 M,V,P;
 void main() {
@@ -21,4 +22,5 @@ void main() {
 	heatcolor = heatColor;
 	moistcolor = moistColor;
 	biomecolor = biomeColor;
+	normalcolor = normalColor;
 }

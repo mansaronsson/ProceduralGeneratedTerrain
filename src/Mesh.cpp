@@ -56,6 +56,9 @@ void Mesh::setupMesh()
     // Biome Color
     glEnableVertexAttribArray(5);
     glVertexAttribPointer(5, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, biomecolor));
+    // Normal Color
+    glEnableVertexAttribArray(6);
+    glVertexAttribPointer(6, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normalcolor));
 
     bakedMesh = true;
     glBindVertexArray(0);

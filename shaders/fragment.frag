@@ -4,11 +4,11 @@ out vec4 outColor;
 in vec3 o_normal;
 in vec3 pos;
 in vec3 o_color;
-in vec3 heatcolor, moistcolor, biomecolor;
+in vec3 heatcolor, moistcolor, biomecolor, normalcolor;
 
 vec3 lightdir = vec3(1.0, 1.0, 0.0);
 //vec3 lightpos = vec3(0, 10, 0);
-uniform bool colorDistance, heat, moist, biome;
+uniform bool colorDistance, heat, moist, biome, normalC;
 
 
 
@@ -40,6 +40,8 @@ void main() {
 		outColor = k * vec4(moistcolor, 1.0f);
 	else if(biome)
 		outColor = k * vec4(biomecolor, 1.0f);
+	else if(normalC)
+		outColor = k * vec4(normalcolor, 1.0f);
 	else 
 		outColor = vec4(0.1, 0.1, 0.1, 1.0) + k * vec4(color, 1.0);
 
