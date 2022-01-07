@@ -234,6 +234,8 @@ private:
 	std::pair<float, float> newChunkPosition(chunkChecker cc, unsigned int gridId) const;
 
 	std::mutex mu;
+	int nThreads;
+	int nActiveThreads;
 
 	const unsigned int gridSize;
 	const unsigned int nrVertices;

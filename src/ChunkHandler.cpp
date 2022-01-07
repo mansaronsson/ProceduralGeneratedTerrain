@@ -8,6 +8,9 @@ ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, flo
 	//unsigned int size = nrVertices; //two extra rows / columns for the skirts
 	unsigned int lod = 1;
 	float width = (nrVertices - 1) * spacing; //width of 1 chunk, -1 due to extra skirts
+	nThreads = std::thread::hardware_concurrency() / 2;
+	nActiveThreads = 0;
+
 
 	for (int row = 0; row < gridSize; ++row) {
 		float zpos = -width * (static_cast<float>(gridSize) / 2.0f) + row * width;
@@ -552,47 +555,51 @@ void ChunkHandler::generateChunk(const std::pair<float, float>& newPos, unsigned
 void ChunkHandler::updateBiomeMap(chunkChecker cc) {
 	m_biomeMap.update(cc);
 
-	std::lock_guard<std::mutex> lock(mu);	// Thread safe
-
-	std::vector<unsigned int> ids;
+	std::queue<unsigned int> ids;
 	int row, col;
 	switch (cc)
 	{
 	case chunkChecker::up:
 		row = 0;
 		for (col = 0; col < gridSize; ++col) {
-			ids.push_back(index(col, row, gridSize));
+			ids.push(index(col, row, gridSize));
 		}
 		break;
 
 	case chunkChecker::down:
 		row = gridSize - 1;
 		for (col = 0; col < gridSize; ++col) {
-			ids.push_back(index(col, row, gridSize));
+			ids.push(index(col, row, gridSize));
 		}
 		break;
 
 	case chunkChecker::left:
 		col = 0;
 		for (row = 0; row < gridSize; ++row) {
-			ids.push_back(index(col, row, gridSize));
+			ids.push(index(col, row, gridSize));
 		}
 		break;
 
 	case chunkChecker::right:
 		col = gridSize - 1;
 		for (row = 0; row < gridSize; ++row) {
-			ids.push_back(index(col, row, gridSize));
+			ids.push(index(col, row, gridSize));
 		}
 		break;
 	}
 
 	// Multi-threading
-	for (auto id : ids)
-	{
-		auto newPos = newChunkPosition(cc, id);
-		std::thread t(&ChunkHandler::generateChunk, this, newPos, nrVertices, spacing, id, cc);
-		t.detach();
+	while(!ids.empty())
+	{		
+		if (nActiveThreads < nThreads) {
+			unsigned id = ids.front();
+			ids.pop();
+			auto newPos = newChunkPosition(cc, id);
+			std::thread t(&ChunkHandler::generateChunk, this, newPos, nrVertices, spacing, id, cc);
+			t.detach();
+
+			++nActiveThreads;
+		}
 	}
 }
 
@@ -651,6 +658,7 @@ void ChunkHandler::updateChunks(const glm::vec3& camPos)
 	// Swaps chunks in the chunks grid when a new chunk has been rendered. Updates all chunk ids to match it's position in the chunks grid.
 	while (!renderQ.empty()) 
 	{
+		--nActiveThreads;
 		std::lock_guard<std::mutex> lock(mu);	// Thread safe
 
 		chunkInfo ci = renderQ.front();	// <Chunk*, chunkChecker>
