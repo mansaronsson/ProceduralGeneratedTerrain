@@ -442,7 +442,6 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 
 				Vertex temp = vertices[index(width, depth)];
 				float r = glm::simplex(temp.position);
-				//std::cout << r << "\n";
 
 				if (r < -0.7f) {
 					auto biomeNeighbours = m_mapPtr->countNeighbours(temp.position.x, temp.position.z);

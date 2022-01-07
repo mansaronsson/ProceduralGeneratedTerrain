@@ -3,8 +3,8 @@
 
 CrystalChunk::CrystalChunk(const glm::vec3& pos, const glm::vec3& dir) {
 	
-	float rand = abs(glm::simplex(pos * 2.0f));
-	int nStems = static_cast<int>(1 + 6.0f * rand);
+	float rand = abs(glm::simplex(pos * dir));
+	int nStems = static_cast<int>(1 + 4.0f * rand);
 
 	glm::mat4 M;
 
@@ -55,19 +55,19 @@ void CrystalChunk::draw() {
 CrystalChunk::Crystal::Crystal(const glm::vec3& pos, const glm::vec3& dir) {
 
 	// 3-8
-	float rand = abs(glm::simplex(pos * 3.0f));
+	float rand = abs(glm::simplex(pos * dir * 2.0f));
 	int nSides = static_cast<int>(3 + 7.0f * rand);
-	// 0.05-0.15
-	rand = abs(glm::simplex(pos * 4.0f));
+	// 0.01-0.04
+	rand = abs(glm::simplex(pos * dir * 3.0f));
 	float baseWidth = 0.01f + 0.03f * rand;
-	// 0.1-0.2
-	rand = abs(glm::simplex(pos * 5.0f));
+	// 0.02-0.07
+	rand = abs(glm::simplex(pos * dir * 4.0f));
 	float midWidth = 0.02f + 0.05f * rand;
-	// 0.1-0.2
-	rand = abs(glm::simplex(pos * 6.0f));
+	// 0.02-0.1
+	rand = abs(glm::simplex(pos * dir * 5.0f));
 	float midLength = 0.02f + 0.08f * rand;
-	// 0.5-0.8
-	rand = abs(glm::simplex(pos * 7.0f));
+	// 0.1-0.2
+	rand = abs(glm::simplex(pos * dir * 6.0f));
 	float topLength = 0.1f + 0.1f * rand;
 
 	// vertices
