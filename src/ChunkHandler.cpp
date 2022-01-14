@@ -1,9 +1,6 @@
 #include "..\header\ChunkHandler.h"
 #include <iostream>
 
-
-float triERROR = 0.0f, crossERROR = 0.0f;
-
 ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, float _spacing,
 	std::function<void(ChunkHandler&, float,float,float,float)> func, const Biome& _biomeGenerator)	
 		: gridSize{ (_gridSize % 2 == 0 ? (_gridSize + 1) : _gridSize) }, nrVertices{ _nrVertices }, spacing{ _spacing }, currentChunk{ nullptr },
@@ -30,39 +27,6 @@ ChunkHandler::ChunkHandler(unsigned int _gridSize, unsigned int _nrVertices, flo
 		}
 	}
 	currentChunk = chunks[gridSize * gridSize / 2];
-
-	std::cout << " triangle Error " << triERROR / (chunks.size() * 5)<< " cross Error " << crossERROR / (5 * chunks.size()) << '\n';
-}
- 
-glm::vec3 ChunkHandler::Chunk::createPointWithNoise(float x, float z, float* minY, float* maxY ) const {
-	/*** Apply noise to the height ie. y component using fbm ***/
-	int octaves = 6;
-	float noiseSum = 0.0f;
-	float seed = 0.1f;
-	float amplitude = 6.0f;
-	float gain = 0.5; //How much to increase / decrease each octave
-	float lacunarity = 2.0; //How much to increase / decrease frequency each octave ie. how big steps to take in the noise space
-	float freq = 0.09f;
-
-	//Add noise from all octaves
-	for (int i = 0; i < octaves; ++i) {
-		noiseSum += amplitude * glm::perlin(glm::vec3((x + 1) * freq, (z + 1) * freq, seed));
-		freq *= lacunarity;
-		amplitude *= gain;
-	}
-
-	float noiseY = noiseSum;
-	float groundlevel = -1.51f;
-	if (noiseY < groundlevel)
-		noiseY = groundlevel;
-
-	glm::vec3 pos{ x, noiseY, z };
-
-	if (minY != nullptr && maxY != nullptr) {
-		*minY = *minY > noiseY ? noiseY : *minY;
-		*maxY = *maxY < noiseY ? noiseY : *maxY;
-	}
-	return pos;
 }
 
 std::pair<float, float> ChunkHandler::Chunk::computeXZpos(int width, int depth) const {
@@ -73,7 +37,8 @@ std::pair<float, float> ChunkHandler::Chunk::computeXZpos(int width, int depth) 
 
 glm::vec3 ChunkHandler::Chunk::createFakeVertex(int width, int depth) const {
 	auto [x, z] = computeXZpos(width, depth);
-	return createPointWithNoise(x, z);
+	return biomeGenerator.computeVertexPointFromBiomes(x, z);
+	//return createPointWithNoise(x, z);
 }
 
 glm::vec3 ChunkHandler::Chunk::computeNormal(const std::vector<glm::vec3>& p,const glm::vec3& v0) const {
@@ -182,12 +147,13 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 			}
 			else //Non edges compute noise value for the y-component
 			{
-				auto pos = createPointWithNoise(x, z, &minY, &maxY);
-				auto pos2 = biomeGenerator.computeVertexPointFromBiomes(x, z);
-				vertices.push_back({ pos });
+				//auto pos = createPointWithNoise(x, z, &minY, &maxY);
+				auto pos2 = biomeGenerator.computeVertexPointFromBiomes(x, z, &minY, &maxY);
+				vertices.push_back({ pos2 });
 			}
-			//Set vertex color based on distance
-			biomeGenerator.getColorFromBiome(vertices.back(), x, z);
+
+			//Set vertex colors
+			biomeGenerator.setColorFromBiome(vertices.back(), x, z);
 			vertices.back().color = color;
 			if (depth == 0 || depth == nrVertices - 1 || width == 0 || width == nrVertices - 1) //edges of grid ie. skirts
 			{
@@ -384,65 +350,9 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 		else
 			vert.normalcolor = glm::vec3{ 1.0f, 0.0f, 0.0f };
 	}
-	/*Temporary set color according to angle between normal and ground*/
-	/*
-	glm::vec3 ground{ 0.0f, 1.0f, 0.0f };
-
-	float crosserror = 0.0f;
-	float triangleerror = 0.0f;
-	for (Vertex& vert : vertices) {
-		glm::vec3 p = vert.position;
-		float offset = 0.05f;
-		auto p1 = createPointWithNoise(p.x - offset, p.z - offset);
-		auto p2 = createPointWithNoise(p.x + offset, p.z - offset);
-		auto p3 = createPointWithNoise(p.x, p.z + offset);
-
-		glm::vec3 e1 = p2 - p1;
-		glm::vec3 e2 = p3 - p1;
-		glm::vec3 normal = glm::normalize(glm::cross(e2, e1));
-
-		auto n = createPointWithNoise(p.x, p.z - offset);
-		auto s = createPointWithNoise(p.x, p.z + offset);
-		auto w = createPointWithNoise(p.x - offset, p.z);	
-		auto e = createPointWithNoise(p.x + offset, p.z);
-
-		e1 = n - s;
-		e2 = w - e;
-		glm::vec3 normal_cross = glm::normalize(glm::cross(e1, e2));
-
-
-		float triangleAngle = std::acosf(glm::dot(normal, ground)) * 180 / 3.14f;
-		float angle = std::acosf(glm::dot(vert.normal, ground)) * 180 / 3.14f;
-		float crossAngle = std::acosf(glm::dot(normal_cross, ground)) * 180 / 3.14f;
-
-		//std::cout << "normal " << glm::to_string(vert.normal) << "\n";
-		//std::cout << "triangle normal " << glm::to_string(normal) << '\n';
-		//std::cout << "cross normal " << glm::to_string(normal_cross) << '\n';
-		//std::cout << "angle " << angle << '\n';
-		//std::cout << "triangle angle " << triangleAngle << '\n';
-		//std::cout << "cross angle " << crossAngle << '\n';
-		//std::cout << std::endl;
-		
-		////std::cout << "difference " glm::to_string(vert.normal - normal)) << std::endl;
-		triangleerror += std::abs(angle - triangleAngle);
-		crosserror += std::abs(angle - crossAngle);
-		
-		//if (angle < 40)
-		//{
-		//	vert.color = glm::vec3{ 0.0f, 1.0f, 0.0f };
-		//}
-		//else
-		//	vert.color = glm::vec3{ 1.0f, 0.0f, 0.0f };
-	}
-
-	//std::cout << "Triangle error: " << triangleerror / vertices.size() << " cross error: " << crosserror / vertices.size() << '\n';
-	triERROR += triangleerror / vertices.size();
-	crossERROR += crosserror / vertices.size();
-	//mesh = Mesh{ vertices, indices }; 
-	*/
 
 	//create boundingbox ignoring the extra row and column added by the skirts
-	//max x and z already had size - 1 before skirts were added 
+	//max x and z already had (nrVertices - 1) before skirts were added. Skirt adds 2 extra row / columns so use (nrVertices - 3) 
 	float minX = xpos;
 	float maxX = xpos + (nrVertices - 3) * SPACING;
 	float minZ = zpos;
@@ -451,9 +361,8 @@ ChunkHandler::Chunk::Chunk(unsigned int _nrVertices, unsigned int _lod, float xp
 	//Important theese are given in correct order -> see BoundingBox.h ctor
 	points = std::vector<glm::vec3>{ { minX, maxY, minZ }, { maxX, maxY, minZ }, { maxX, maxY, maxZ }, { minX, maxY, maxZ },
 				{ minX, minY, minZ }, { maxX, minY, minZ }, { maxX, minY, maxZ }, { minX, minY, maxZ } };
+
 }
-
-
 
 chunkChecker ChunkHandler::Chunk::checkMovement(const glm::vec3& pos)
 {

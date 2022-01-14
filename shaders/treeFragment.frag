@@ -7,6 +7,8 @@ in vec2 st;
 
 vec3 lightdir = vec3(1.0, 1.0, 0.0);
 
+uniform sampler2D barkTexture;
+
 void main() {
 	vec3 normal = normalize(o_normal);
 	lightdir = normalize(lightdir);
@@ -16,6 +18,8 @@ void main() {
 	vec3 color = vec3(0.2, 0.9, 0.3); //vec3(1.0, 0.2, 0.8);
 
 	outColor = vec4(0.1, 0.1, 0.1, 1.0) + k * vec4(color, 1.0);
+
+	outColor = vec4(0.1, 0.1, 0.1, 1.0) + k * texture(barkTexture, st);
 }
 
 /*#version 330 core

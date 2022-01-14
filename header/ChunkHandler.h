@@ -86,7 +86,7 @@ public:
 	/// return vec3 position at width, depth x,z
 	/// </summary>
 	glm::vec3 getPointOnTerrain(float x, float z) {
-		return currentChunk->createPointWithNoise(x, z);
+		return biomeGenerator.computeVertexPointFromBiomes(x, z);
 	}
 
 	/// <summary>
@@ -148,12 +148,7 @@ private:
 
 		void bakeMeshes();
 
-		/// <summary>
-		/// Create noisy point at position x,z computes height y
-		/// https://thebookofshaders.com/13/
-		/// TODO: make noise dependent on variables
-		/// </summary>
-		glm::vec3 createPointWithNoise(float x, float z, float* minY = nullptr, float* maxY = nullptr) const;
+
 		/// <summary>
 		/// Helper function computes x & z position in grid
 		/// </summary>

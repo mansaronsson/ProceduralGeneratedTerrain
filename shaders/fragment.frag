@@ -61,4 +61,21 @@ void main() {
 	float k = max(dot(normal, lightdir), 0.0);
 
 	outColor = vec4(0.1, 0.1, 0.1, 1.0) +  k *  vec4(1.0, 0.2, 0.8, 1.0);
+
+
+	//if 0 - 1 based noise is used 
+
+	vec3 color = vec3(0.2, 0.9, 0.3); //vec3(1.0, 0.2, 0.8);
+	if(pos.y > 0.9) {
+		color = vec3(1.0,1.0,1.0); //white
+	}
+	else if(pos.y > 0.55) {
+		color = vec3(0.6, 0.4, 0.5); //gray
+	}
+	else if(pos.y > 4) {
+		color = vec3(0.3, 0.8, 0.2); //green
+	}
+	else if(pos.y < 0.2) {
+		color = vec3(0.2, 0.2, 0.7); //blue
+	}
 }*/
