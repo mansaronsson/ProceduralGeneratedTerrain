@@ -60,7 +60,7 @@ void BiomeMap::update(chunkChecker cc) {
 			for (; xit != m_map.end(); ++xit) {
 
 				zStart = zit->first;
-				for (float z = zStart - step; z > zStart - m_chunkWidth; z -= step) {
+				for (float z = zStart - step; z > zStart - 2 * m_chunkWidth; z -= step) {
 					xit->second[z] = generateBiome(xit->first, z);
 				}
 			}
@@ -72,7 +72,7 @@ void BiomeMap::update(chunkChecker cc) {
 				zit = xit->second.end();
 				--zit;
 				zStart = zit->first;
-				for (float z = zStart + step; z < zStart + m_chunkWidth; z += step) {
+				for (float z = zStart + step; z < zStart + 2 * m_chunkWidth; z += step) {
 					xit->second[z] = generateBiome(xit->first, z);
 				}
 			}
@@ -85,7 +85,7 @@ void BiomeMap::update(chunkChecker cc) {
 			zit = xit->second.end();
 			--zit;
 			zEnd = zit->first;
-			for (float x = xStart - step; x > xStart - m_chunkWidth; x -= step) {
+			for (float x = xStart - step; x > xStart - 2 * m_chunkWidth; x -= step) {
 				for (float z = zStart; z <= zEnd; z += step) {
 
 					m_map[x][z] = generateBiome(x, z);
@@ -104,7 +104,7 @@ void BiomeMap::update(chunkChecker cc) {
 			zit = xit->second.end();
 			--zit;
 			zEnd = zit->first;
-			for (float x = xStart + step; x < xStart + m_chunkWidth; x += step) {
+			for (float x = xStart + step; x < xStart + 2 * m_chunkWidth; x += step) {
 				for (float z = zStart; z <= zEnd; z += step) {
 
 					m_map[x][z] = generateBiome(x, z);

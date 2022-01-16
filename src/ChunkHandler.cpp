@@ -553,6 +553,8 @@ void ChunkHandler::generateChunk(const std::pair<float, float>& newPos, unsigned
 //}
 
 void ChunkHandler::updateBiomeMap(chunkChecker cc) {
+	
+	++nActiveThreads;
 	m_biomeMap.update(cc);
 
 	std::queue<unsigned int> ids;
@@ -601,6 +603,7 @@ void ChunkHandler::updateBiomeMap(chunkChecker cc) {
 			++nActiveThreads;
 		}
 	}
+	--nActiveThreads;
 }
 
 

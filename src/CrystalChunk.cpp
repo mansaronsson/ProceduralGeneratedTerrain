@@ -4,7 +4,7 @@
 CrystalChunk::CrystalChunk(const glm::vec3& pos, const glm::vec3& dir) {
 	
 	float rand = abs(glm::simplex(pos * dir));
-	int nStems = static_cast<int>(1 + 4.0f * rand);
+	int nStems = static_cast<int>(1 + 5.0f * rand);
 
 	glm::mat4 M;
 
@@ -17,13 +17,11 @@ CrystalChunk::CrystalChunk(const glm::vec3& pos, const glm::vec3& dir) {
 		else if (nStems > 3) {
 			stemDir = glm::normalize(dir + glm::cross(dir, glm::vec3{ 1.0f, 0.0f, 0.0f }));
 			M = glm::rotate(static_cast<float>(M_PI) * 2 * (stem - 1) / (nStems - 1), dir);
-			//stemDir = glm::rotate(stemDir, static_cast<float>(M_PI) * 2 * (stem-1) / (nStems-1), dir);
 			stemDir = M * glm::vec4{ stemDir, 1.0f };
 		}
 		else {
 			stemDir = glm::normalize(dir + glm::cross(dir, glm::vec3{ 1.0f, 0.0f, 0.0f }));
 			M = glm::rotate(static_cast<float>(M_PI) * 2 * stem / nStems, dir);
-			//stemDir = glm::rotate(stemDir, static_cast<float>(M_PI) * 2 * stem / nStems, dir);
 			stemDir = M * glm::vec4{ stemDir, 1.0f };
 		}
 

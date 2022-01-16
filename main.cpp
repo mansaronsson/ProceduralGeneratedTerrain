@@ -30,7 +30,7 @@ void updateCamera2();
 void printmat4(const glm::mat4& mat);
 
 //settings
-int constexpr gridSize{ 11 };
+int constexpr gridSize{ 17 };
 int constexpr nrVertices{ 81 };
 float constexpr spacing{ 0.15 };
 
@@ -105,9 +105,8 @@ int main() {
 
     Mesh camera1Mesh{ campoints, camIndices };
 
-    //65
     ChunkHandler chandler{gridSize, nrVertices, spacing};   // (gridSize, nrVertices, spacing)
-    //CrystalChunk crys{ glm::vec3{0.0f, 2.0f, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f} };
+    //CrystalChunk crys{ glm::vec3{0.0f, 0.0f, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f} };
     //crys.bake();
 
     //OpenGL render Settings
@@ -218,8 +217,8 @@ int main() {
         toggleCamera ? crystalShader.setMat4("P", perspective) : crystalShader.setMat4("P", perspective2);
 
         glEnable(GL_BLEND);
-        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-        //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        //glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         chandler.drawCrystals(camera1Control.getCameraPosition());
         //crys.draw();
@@ -268,7 +267,6 @@ std::vector<CameraPlane> computeCameraPlanes(const std::vector<glm::vec3>& point
     //std::cout << "near plane normal z: " << p6.normal.z << '\n';
 
     //std::cout << '\n';
-    //TODO check if near plane is necessary
     return std::vector<CameraPlane>{p1, p2, p3, p4, p5};
 }
 
