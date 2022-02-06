@@ -18,4 +18,4 @@ Crystals features are varies based on simplex noise functions, with world coodin
 ## The devs ☕
 This is a course project at Linköping University by the M.Sc. in Media Technology and Engineering students:
 - Måns Aronsson ([@mansaronsson](https://github.com/mansaronsson))
-- Andreas Engberg ([@pengbergandreas](https://github.com/engbergandreas))
+- Andreas Engberg ([@engbergandreas](https://github.com/engbergandreas))
