@@ -1,5 +1,6 @@
 # Procedurally generated terrain
-![img](https://ibb.co/hY3k7X7)
+![img](https://i.ibb.co/6Xj2nvn/biomes.png)
+
 ---
 
 A procedural world made up of chunks. This was our first time implementing an OpenGL project from scratch (\**cough*\* using GLM, GLFW and GLAD). All generation is determenistic, meaning the terrain will always look identical every time it is generated due to the use of Perlin/Simplex noise.
